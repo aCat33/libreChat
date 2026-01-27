@@ -186,5 +186,8 @@
       "admin/",
       "packages/"
     ]
+  },
+  "dependencies": {
+    "denque": "^2.1.0"
   }
 }
