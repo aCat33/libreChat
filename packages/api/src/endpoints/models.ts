@@ -214,6 +214,11 @@ export async function fetchOpenAIModels(
     return models;
   }
 
+  // Skip API fetch when OpenAI is not configured (no key or placeholder from .env.example)
+  const keyStr = apiKey ? String(apiKey).trim() : '';
+  if (!keyStr || keyStr === 'user_provided') {
+    return _models;
+  }
   if (reverseProxyUrl) {
     baseURL = extractBaseURL(reverseProxyUrl) ?? openaiBaseURL;
   }
