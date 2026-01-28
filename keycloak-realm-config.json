@@ -1,0 +1,198 @@
+{
+  "realm": "librechat-test",
+  "enabled": true,
+  "displayName": "LibreChat Test Realm",
+  "displayNameHtml": "<b>LibreChat</b> Test",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  
+  "clients": [
+    {
+      "clientId": "librechat",
+      "name": "LibreChat Application",
+      "description": "LibreChat OIDC Client",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "rootUrl": "http://localhost:3080",
+      "baseUrl": "http://localhost:3080",
+      "redirectUris": [
+        "http://localhost:3080/*",
+        "http://localhost:3080/oauth/openid/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3080"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "secret": "librechat-test-secret-12345",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ],
+  
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "管理员",
+      "lastName": "测试",
+      "email": "admin@test.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ]
+      },
+      "attributes": {
+        "department": ["IT"],
+        "employee_id": ["EMP001"]
+      }
+    },
+    {
+      "username": "user1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "张三",
+      "lastName": "测试用户",
+      "email": "user1@test.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "attributes": {
+        "department": ["Sales"],
+        "employee_id": ["EMP002"]
+      }
+    },
+    {
+      "username": "user2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "李四",
+      "lastName": "测试用户",
+      "email": "user2@test.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "attributes": {
+        "department": ["Engineering"],
+        "employee_id": ["EMP003"]
+      }
+    },
+    {
+      "username": "manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "王五",
+      "lastName": "经理",
+      "email": "manager@test.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "manager"
+      ],
+      "attributes": {
+        "department": ["Management"],
+        "employee_id": ["EMP004"]
+      }
+    }
+  ],
+  
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "普通用户角色"
+      },
+      {
+        "name": "admin",
+        "description": "管理员角色"
+      },
+      {
+        "name": "manager",
+        "description": "经理角色"
+      }
+    ]
+  },
+  
+  "clientScopes": [
+    {
+      "name": "roles",
+      "description": "OpenID Connect scope for add user roles to the access token",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "user.attribute": "foo",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}
