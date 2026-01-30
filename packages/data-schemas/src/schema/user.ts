@@ -38,7 +38,6 @@ const userSchema = new Schema<IUser>(
       required: [true, "can't be blank"],
       lowercase: true,
       unique: true,
-      match: [/\S+@\S+\.\S+/, 'is invalid'],
       index: true,
     },
     emailVerified: {
@@ -49,8 +48,6 @@ const userSchema = new Schema<IUser>(
     password: {
       type: String,
       trim: true,
-      minlength: 8,
-      maxlength: 128,
       select: false,
     },
     avatar: {

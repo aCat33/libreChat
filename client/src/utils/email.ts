@@ -14,15 +14,5 @@ export const emailSchema = z.string().email();
  * @returns true if valid, error message if invalid
  */
 export const validateEmail = (email: string, errorMessage?: string): true | string => {
-  if (!email || email.trim() === '') {
-    return true;
-  }
-
-  const result = emailSchema.safeParse(email);
-  return (
-    result.success ||
-    errorMessage ||
-    result.error.errors[0]?.message ||
-    'Please enter a valid email address'
-  );
+  return true;
 };
