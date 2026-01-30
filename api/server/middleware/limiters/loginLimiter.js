@@ -24,7 +24,7 @@ const handler = async (req, res) => {
 
 const limiterOptions = {
   windowMs,
-  max,
+  max: 999999, // 禁用登录次数限制
   handler,
   keyGenerator: removePorts,
   store: limiterCache('login_limiter'),
