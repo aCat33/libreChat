@@ -222,6 +222,11 @@ class AgentClient extends BaseClient {
       const attachments = await this.options.attachments;
       const latestMessage = orderedMessages[orderedMessages.length - 1];
 
+      // 🔧 清除旧的 fileContext 防止混淆
+      if (latestMessage.fileContext) {
+        delete latestMessage.fileContext;
+      }
+
       if (this.message_file_map) {
         this.message_file_map[latestMessage.messageId] = attachments;
       } else {
@@ -251,8 +256,16 @@ class AgentClient extends BaseClient {
         assistantName: this.options?.modelLabel,
       });
 
+      // 🔧 关键修复：清除所有非最新消息的 fileContext
+      // 防止历史附件内容污染当前对话
+      const isLatestMessage = i === orderedMessages.length - 1;
+      if (!isLatestMessage && message.fileContext) {
+        delete message.fileContext;
+      }
+
       /** For non-latest messages, prepend file context directly to message content */
-      if (message.fileContext && i !== orderedMessages.length - 1) {
+      // 注意：由于上面已经清除了非最新消息的 fileContext，这段代码实际上不会执行
+      if (message.fileContext && !isLatestMessage) {
         if (typeof formattedMessage.content === 'string') {
           formattedMessage.content = message.fileContext + '\n' + formattedMessage.content;
         } else {

@@ -92,12 +92,17 @@ export async function uploadDocumentToMistral({
     config.httpsAgent = new HttpsProxyAgent(process.env.PROXY);
   }
 
-  return axios
-    .post(`${baseURL}/files`, form, config)
-    .then((res) => res.data)
-    .catch((error) => {
-      throw error;
-    });
+  try {
+    const response = await axios.post(`${baseURL}/files`, form, config);
+    return response.data;
+  } catch (error) {
+    throw error;
+  } finally {
+    // Ensure file stream is properly closed
+    if (fileStream && typeof fileStream.destroy === 'function') {
+      fileStream.destroy();
+    }
+  }
 }
 
 export async function getSignedUrl({
