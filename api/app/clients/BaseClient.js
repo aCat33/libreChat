@@ -1279,6 +1279,11 @@ class BaseClient {
    * @returns {Promise<void>}
    */
   async addFileContextToMessage(message, attachments) {
+    // 🔧 清除旧的 fileContext 防止缓存污染
+    if (message.fileContext) {
+      delete message.fileContext;
+    }
+
     const fileContext = await extractFileContext({
       attachments,
       req: this.options?.req,

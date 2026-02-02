@@ -51,11 +51,15 @@ export async function parseText({
     return parseTextNative(file);
   }
 
+  let fileStream: NodeJS.ReadableStream | null = null;
   try {
     const jwtToken = generateShortLivedToken(userId);
     const formData = new FormData();
     formData.append('file_id', file_id);
-    formData.append('file', createReadStream(file.path));
+    
+    // Create file stream and keep reference for cleanup
+    fileStream = createReadStream(file.path);
+    formData.append('file', fileStream);
 
     const formHeaders = formData.getHeaders();
 
@@ -86,6 +90,11 @@ export async function parseText({
       error,
     });
     return parseTextNative(file);
+  } finally {
+    // Ensure file stream is properly closed
+    if (fileStream && typeof (fileStream as any).destroy === 'function') {
+      (fileStream as any).destroy();
+    }
   }
 }
 
