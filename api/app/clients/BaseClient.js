@@ -1409,10 +1409,14 @@ class BaseClient {
           file_id: { $in: fileIds },
         },
         {},
-        {},
+        { text: 0 }, // 🔧 排除 text 字段 - 历史消息不需要重新读取文件内容
       );
 
-      await this.addFileContextToMessage(message, files);
+      // 🔧 关键修复：历史消息不重新提取 fileContext
+      // fileContext 应该在消息首次发送时提取并保存到数据库
+      // 这里只需要处理附件元数据(如图片 URL)用于多模态请求
+      // 不调用 addFileContextToMessage,避免从数据库重新读取旧文件的 text 字段
+
       await this.processAttachments(message, files);
 
       this.message_file_map[message.messageId] = files;

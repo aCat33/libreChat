@@ -29,6 +29,7 @@ import { batchDeleteKeys, scanKeys } from './redisUtils';
 export const standardCache = (namespace: string, ttl?: number, fallbackStore?: object): Keyv => {
   if (keyvRedisClient && !cacheConfig.FORCED_IN_MEMORY_CACHE_NAMESPACES?.includes(namespace)) {
     try {
+      // @ts-expect-error - Redis type compatibility issue between @redis/client and redis packages
       const keyvRedis = new KeyvRedis(keyvRedisClient);
       const cache = new Keyv(keyvRedis, { namespace, ttl });
       keyvRedis.namespace = cacheConfig.REDIS_KEY_PREFIX;

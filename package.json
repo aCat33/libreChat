@@ -92,7 +92,8 @@
     "migrate:prompt-permissions:batch": "node config/migrate-prompt-permissions.js --batch-size=50",
     "setup-test-users": "node config/setup-test-users.js",
     "test:mcp-permissions": "node config/test-mcp-permissions.js",
-    "check-test-env": "node config/check-test-readiness.js"
+    "check-test-env": "node config/check-test-readiness.js",
+    "download-tesseract-lang": "node scripts/download-tesseract-lang.js"
   },
   "repository": {
     "type": "git",
@@ -165,6 +166,13 @@
     ]
   },
   "dependencies": {
-    "denque": "^2.1.0"
+    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+    "denque": "^2.1.0",
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.624",
+    "tesseract.js": "^7.0.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5"
   }
 }

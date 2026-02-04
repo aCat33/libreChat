@@ -92,6 +92,7 @@
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@smithy/node-http-handler": "^4.4.5",
     "axios": "^1.12.1",
+    "canvas": "^2.11.2",
     "connect-redis": "^8.1.0",
     "eventsource": "^3.0.2",
     "express": "^5.1.0",
@@ -110,7 +111,10 @@
     "memorystore": "^1.6.7",
     "mongoose": "^8.12.1",
     "node-fetch": "2.7.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^3.11.174",
     "rate-limit-redis": "^4.2.0",
+    "tesseract.js": "^5.0.5",
     "tiktoken": "^1.0.15",
     "undici": "^7.18.2",
     "zod": "^3.22.4"
