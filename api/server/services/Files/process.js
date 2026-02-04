@@ -20,7 +20,7 @@ const {
 } = require('librechat-data-provider');
 const { EnvVar } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
-const { sanitizeFilename, parseText, processAudioFile } = require('@librechat/api');
+const { sanitizeFilename, parseText, processAudioFile, parseImage } = require('@librechat/api');
 const {
   convertImage,
   resizeAndConvert,
@@ -297,6 +297,27 @@ const processImageFile = async ({ req, res, metadata, returnFile = false }) => {
     endpoint,
   });
 
+  // Perform OCR if image contains text
+  let text, ocrMetadata;
+  try {
+    logger.info(`[processImageFile] Attempting OCR for image: ${file.originalname}`);
+    const ocrResult = await parseImage(file.path);
+    
+    if (ocrResult.text && !ocrResult.error) {
+      text = ocrResult.text;
+      ocrMetadata = {
+        confidence: ocrResult.confidence,
+        language: ocrResult.language,
+        source: ocrResult.source,
+      };
+      logger.info(`[processImageFile] OCR successful - source: ${ocrResult.source}, confidence: ${ocrResult.confidence}%`);
+    } else if (ocrResult.error) {
+      logger.warn(`[processImageFile] OCR failed: ${ocrResult.error}`);
+    }
+  } catch (error) {
+    logger.error('[processImageFile] OCR error:', error);
+  }
+
   const result = await createFile(
     {
       user: req.user.id,
@@ -310,6 +331,8 @@ const processImageFile = async ({ req, res, metadata, returnFile = false }) => {
       type: `image/${appConfig.imageOutputType}`,
       width,
       height,
+      text,
+      ocr: ocrMetadata,
     },
     true,
   );

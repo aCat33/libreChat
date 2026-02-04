@@ -74,6 +74,14 @@ const file: Schema<IMongoFile> = new Schema(
     metadata: {
       fileIdentifier: String,
     },
+    ocr: {
+      confidence: Number,
+      language: String,
+      source: {
+        type: String,
+        enum: ['local', 'remote'],
+      },
+    },
     expiresAt: {
       type: Date,
       expires: 3600, // 1 hour in seconds
