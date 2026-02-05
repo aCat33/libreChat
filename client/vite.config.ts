@@ -40,7 +40,7 @@ export default defineConfig(({ command }) => ({
     allowedHosts:
       (process.env.VITE_ALLOWED_HOSTS && process.env.VITE_ALLOWED_HOSTS.split(',')) || [],
     host: process.env.HOST || 'localhost',
-    port: (process.env.PORT && Number(process.env.PORT)) || 3080,
+    port: process.env.PORT && Number(process.env.PORT) || 3081,
     strictPort: false,
     proxy: {
       '/api': {
