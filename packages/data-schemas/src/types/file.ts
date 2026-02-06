@@ -21,6 +21,11 @@ export interface IMongoFile extends Omit<Document, 'model'> {
   metadata?: {
     fileIdentifier?: string;
   };
+  ocr?: {
+    confidence?: number;
+    language?: string;
+    source?: 'local' | 'remote';
+  };
   expiresAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;

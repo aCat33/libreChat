@@ -100,7 +100,7 @@ export async function parseText({
 
 /**
  * Native JavaScript text parsing fallback
- * Simple text file reading - complex formats handled by RAG API
+ * Supports .txt, .docx, .xlsx, and PDF files
  * @param file - The uploaded file
  * @returns
  */
@@ -109,9 +109,54 @@ export async function parseTextNative(file: Express.Multer.File): Promise<{
   bytes: number;
   source: string;
 }> {
-  const { content: text, bytes } = await readFileAsString(file.path, {
-    fileSize: file.size,
-  });
+  const mimeType = file.mimetype;
+  let text = '';
+
+  try {
+    // Parse .docx files
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const mammoth = await import('mammoth');
+      const result = await mammoth.extractRawText({ path: file.path });
+      text = result.value;
+      logger.info(`[parseTextNative] Extracted ${text.length} chars from .docx`);
+    }
+    // Parse .xlsx files
+    else if (mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.readFile(file.path);
+      const sheets: string[] = [];
+      
+      workbook.SheetNames.forEach((sheetName) => {
+        const worksheet = workbook.Sheets[sheetName];
+        const sheetText = XLSX.utils.sheet_to_txt(worksheet);
+        sheets.push(`=== ${sheetName} ===\n${sheetText}`);
+      });
+      
+      text = sheets.join('\n\n');
+      logger.info(`[parseTextNative] Extracted ${text.length} chars from .xlsx (${workbook.SheetNames.length} sheets)`);
+    }
+    // Parse PDF files
+    else if (mimeType === 'application/pdf') {
+      const pdfParse = await import('pdf-parse');
+      const fs = await import('fs');
+      const dataBuffer = fs.readFileSync(file.path);
+      // @ts-expect-error - pdf-parse module export handling
+      const pdfData = await pdfParse(dataBuffer);
+      text = pdfData.text;
+      logger.info(`[parseTextNative] Extracted ${text.length} chars from PDF (${pdfData.numpages} pages)`);
+    }
+    // Parse plain text files
+    else {
+      const { content } = await readFileAsString(file.path, { fileSize: file.size });
+      text = content;
+    }
+  } catch (error) {
+    logger.error('[parseTextNative] Error parsing file, falling back to raw text:', error);
+    const { content } = await readFileAsString(file.path, { fileSize: file.size });
+    text = content;
+  }
+
+  const bytes = Buffer.byteLength(text, 'utf8');
 
   return {
     text,

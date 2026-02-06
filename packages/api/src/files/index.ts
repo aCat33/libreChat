@@ -7,3 +7,5 @@ export * from './ocr';
 export * from './parse';
 export * from './validation';
 export * from './text';
+export * from './images';
+export * from './ocr/tesseract';
