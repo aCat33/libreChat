@@ -81,7 +81,13 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
           setIsRendered(true);
         } catch (error) {
           console.error('Mermaid rendering error:', error);
-          mermaidRef.current.innerHTML = 'Error rendering diagram';
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const escapedError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          mermaidRef.current.innerHTML = 
+            '<div style="padding: 20px; color: #ff6b6b; font-family: monospace;">' +
+              '<h3>Error rendering diagram</h3>' +
+              '<pre style="white-space: pre-wrap; word-break: break-word;">' + escapedError + '</pre>' +
+            '</div>';
         }
       }
     };

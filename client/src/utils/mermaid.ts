@@ -47,26 +47,40 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
-      theme: "base",
+      theme: "forest",
       themeVariables: {
-        background: "#282C34",
-        primaryColor: "#333842",
-        secondaryColor: "#333842",
-        tertiaryColor: "#333842",
-        primaryTextColor: "#ABB2BF",
-        secondaryTextColor: "#ABB2BF",
-        lineColor: "#636D83",
         fontSize: "16px",
-        nodeBorder: "#636D83",
-        mainBkg: '#282C34',
-        altBackground: '#282C34',
-        textColor: '#ABB2BF',
-        edgeLabelBackground: '#282C34',
-        clusterBkg: '#282C34',
-        clusterBorder: "#636D83",
-        labelBoxBkgColor: "#333842",
-        labelBoxBorderColor: "#636D83",
-        labelTextColor: "#ABB2BF",
+        primaryColor: "#FF6B6B",
+        primaryTextColor: "#fff",
+        primaryBorderColor: "#FF6B6B",
+        secondaryColor: "#4ECDC4",
+        secondaryTextColor: "#fff",
+        secondaryBorderColor: "#4ECDC4",
+        tertiaryColor: "#95E1D3",
+        tertiaryTextColor: "#000",
+        tertiaryBorderColor: "#95E1D3",
+        // 饼图专用颜色
+        pie1: "#FF6B6B",
+        pie2: "#4ECDC4",
+        pie3: "#95E1D3",
+        pie4: "#F38181",
+        pie5: "#AA96DA",
+        pie6: "#FCBAD3",
+        pie7: "#A8D8EA",
+        pie8: "#FFFFD2",
+        pie9: "#FFA07A",
+        pie10: "#98D8C8",
+        pie11: "#F7DC6F",
+        pie12: "#BB8FCE",
+        pieTitleTextSize: "20px",
+        pieTitleTextColor: "#000",
+        pieSectionTextSize: "16px",
+        pieSectionTextColor: "#fff",
+        pieLegendTextSize: "14px",
+        pieLegendTextColor: "#000",
+        pieStrokeColor: "#fff",
+        pieStrokeWidth: "2px",
+        pieOpacity: "0.9",
       },
       flowchart: {
         curve: "basis",
@@ -77,6 +91,10 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
         useMaxWidth: true,
         padding: 15,
         wrappingWidth: 200,
+      },
+      pie: {
+        textPosition: 0.75,
+        useWidth: 900,
       },
     });
 
@@ -97,20 +115,42 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
             });
 
             const rectElements = svgElement.querySelectorAll("rect");
+            const barColors = ["#FF6B6B", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA", "#FCBAD3", "#A8D8EA"];
+            let barIndex = 0;
+            
             rectElements.forEach((rect) => {
               const parent = rect.parentElement;
               if (parent && parent.classList.contains("node")) {
                 rect.style.stroke = "#636D83";
                 rect.style.strokeWidth = "1px";
               } else {
-                rect.style.stroke = "none";
+                // 为柱状图的bar添加颜色
+                const rectClass = rect.getAttribute("class") || "";
+                if (rectClass.includes("bar") || rect.getAttribute("height")) {
+                  const height = parseFloat(rect.getAttribute("height") || "0");
+                  if (height > 20) { // 只为实际的柱状图bar上色
+                    rect.style.fill = barColors[barIndex % barColors.length];
+                    barIndex++;
+                  }
+                }
               }
             });
           }
           setIsRendered(true);
         } catch (error) {
           console.error("Mermaid rendering error:", error);
-          mermaidRef.current.innerHTML = "Error rendering diagram";
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const escapedError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const escapedContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          mermaidRef.current.innerHTML = 
+            '<div style="padding: 20px; color: #ff6b6b; font-family: monospace; background: #2a2a2a; border-radius: 4px;">' +
+              '<h3 style="margin-top: 0;">图表渲染错误</h3>' +
+              '<pre style="white-space: pre-wrap; word-break: break-word; font-size: 12px;">' + escapedError + '</pre>' +
+              '<details style="margin-top: 10px;">' +
+                '<summary style="cursor: pointer;">查看原始内容</summary>' +
+                '<pre style="white-space: pre-wrap; word-break: break-word; font-size: 11px; margin-top: 10px; opacity: 0.7;">' + escapedContent + '</pre>' +
+              '</details>' +
+            '</div>';
         }
       }
     };
