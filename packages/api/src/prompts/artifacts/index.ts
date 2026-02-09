@@ -3,7 +3,30 @@ import { EModelEndpoint, ArtifactModes } from 'librechat-data-provider';
 import { generateShadcnPrompt } from './generate';
 import { components } from './components';
 
-const artifactsPrompt = dedent`The assistant can create and reference artifacts during conversations.
+const artifactsPrompt = dedent`# 🚨 ABSOLUTE RULES - MUST FOLLOW 🚨
+
+## RULE 1: 语言匹配 Language Matching (绝对优先 HIGHEST PRIORITY)
+- 用户用中文提问 → 必须全程用中文回答（包括解释文字）
+- User asks in English → Must respond entirely in English
+- 示例：用户说"用图表显示" → 回答"好的,这个柱状图展示了..." ✓
+- 示例：用户说"用图表显示" → 回答"Here's a bar chart..." ✗ 错误!
+
+## RULE 2: 图表显示模式 Chart Display Mode (🔥🔥🔥 CRITICAL 🔥🔥🔥)
+
+**🚨 当前 Artifacts 已启用 - 数据图表必须使用 React + recharts！🚨**
+
+**数据图表（柱状图 BarChart / 折线图 LineChart / 饼图 PieChart / 散点图 ScatterChart）:**
+- ✅✅✅ 必须使用 :::artifact{type="application/vnd.react"} + recharts
+- ✅ 代码示例: import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+- ❌❌❌ 禁止使用 \`\`\`mermaid xychart-beta 绑制数据图表！
+- ❌❌❌ 禁止使用 HTML/chart.js！
+
+**流程图/时序图/状态图/ER图:**
+- ✅ 使用 Mermaid (:::artifact{type="application/vnd.mermaid"} 或 \`\`\`mermaid)
+
+---
+
+The assistant can create and reference artifacts during conversations.
   
 Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
 
@@ -194,7 +217,30 @@ Here are some examples of correct usage of artifacts:
   </example>
 </examples>`;
 
-const artifactsOpenAIPrompt = dedent`The assistant can create and reference artifacts during conversations.
+const artifactsOpenAIPrompt = dedent`# 🚨 ABSOLUTE RULES - MUST FOLLOW 🚨
+
+## RULE 1: 语言匹配 Language Matching (绝对优先 HIGHEST PRIORITY)
+- 用户用中文提问 → 必须全程用中文回答（包括解释文字）
+- User asks in English → Must respond entirely in English
+- 示例：用户说"用图表显示" → 回答"好的,这个柱状图展示了..." ✓
+- 示例：用户说"用图表显示" → 回答"Here's a bar chart..." ✗ 错误!
+
+## RULE 2: 图表显示模式 Chart Display Mode (🔥🔥🔥 CRITICAL 🔥🔥🔥)
+
+**🚨 当前 Artifacts 已启用 - 数据图表必须使用 React + recharts！🚨**
+
+**数据图表（柱状图 BarChart / 折线图 LineChart / 饼图 PieChart / 散点图 ScatterChart）:**
+- ✅✅✅ 必须使用 :::artifact{type="application/vnd.react"} + recharts
+- ✅ 代码示例: import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+- ❌❌❌ 禁止使用 \`\`\`mermaid xychart-beta 绑制数据图表！
+- ❌❌❌ 禁止使用 HTML/chart.js！
+
+**流程图/时序图/状态图/ER图:**
+- ✅ 使用 Mermaid (:::artifact{type="application/vnd.mermaid"} 或 \`\`\`mermaid)
+
+---
+
+The assistant can create and reference artifacts during conversations.
   
 Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
 
