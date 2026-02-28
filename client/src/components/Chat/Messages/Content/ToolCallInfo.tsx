@@ -95,6 +95,7 @@ export default function ToolCallInfo({
                   }}
                   htmlProps={{
                     autoResizeIframe: { width: true, height: true },
+                    sandboxPermissions: 'allow-scripts allow-same-origin allow-popups allow-forms',
                   }}
                 />
               )}
