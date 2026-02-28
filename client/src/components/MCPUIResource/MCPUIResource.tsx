@@ -41,16 +41,17 @@ export function MCPUIResource(props: MCPUIResourceProps) {
 
   try {
     return (
-      <span className="mx-1 inline-block w-full align-middle">
+      <div className="mx-1 w-full" style={{ height: '600px', minHeight: '600px' }}>
         <UIResourceRenderer
           resource={uiResource}
           onUIAction={async (result) => handleUIAction(result, ask)}
           htmlProps={{
             autoResizeIframe: { width: true, height: true },
-            sandboxPermissions: 'allow-popups',
+            sandboxPermissions: 'allow-scripts allow-same-origin allow-popups allow-forms',
+            style: { height: '600px', width: '100%' },
           }}
         />
-      </span>
+      </div>
     );
   } catch (error) {
     console.error('Error rendering UI resource:', error);

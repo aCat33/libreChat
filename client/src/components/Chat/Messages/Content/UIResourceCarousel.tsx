@@ -117,6 +117,7 @@ const UIResourceCarousel: React.FC<UIResourceCarouselProps> = React.memo(({ uiRe
                   onUIAction={async (result) => handleUIAction(result, ask)}
                   htmlProps={{
                     autoResizeIframe: { width: true, height: true },
+                    sandboxPermissions: 'allow-scripts allow-same-origin allow-popups allow-forms',
                   }}
                 />
               </div>
