@@ -14,23 +14,39 @@ mcpSettings:
   allowedDomains:
     - "http://localhost:8081"
     - "http://127.0.0.1:8081"
+    - "http://localhost:8082"
+    - "http://127.0.0.1:8082"
     - "http://localhost:12308"    # Mock Web Server 测试地址
     - "http://127.0.0.1:12308"    # Mock Web Server 测试地址
 
 mcpServers:
-  # 单个HTTP MCP Server，服务所有用户
-  oilfield-drilling:
+  # 油井基础数据 MCP Server
+  oilfield-wells:
     type: http
     url: "http://localhost:8081/sse"
     
-    # ⭐ 关键：通过headers传递用户信息
+    # ⭐ 通过 headers 传递用户信息实现动态权限控制
     headers:
       X-User-Role: "{{LIBRECHAT_USER_ROLE}}"
       X-User-Email: "{{LIBRECHAT_USER_EMAIL}}"
       X-User-ID: "{{LIBRECHAT_USER_ID}}"
     
-    title: "Oilfield Drilling Data Service"
-    description: "Provides oilfield drilling data query management and analysis with role based access control"
+    title: "Oilfield Wells Data Service"
+    description: "Oil well search, details query, and statistical analysis with role-based access control"
+  
+  # 日报系统 MCP Server
+  oilfield-dailyreports:
+    type: http
+    url: "http://localhost:8082/sse"
+    
+    # ⭐ 通过 headers 传递用户信息实现动态权限控制
+    headers:
+      X-User-Role: "{{LIBRECHAT_USER_ROLE}}"
+      X-User-Email: "{{LIBRECHAT_USER_EMAIL}}"
+      X-User-ID: "{{LIBRECHAT_USER_ID}}"
+    
+    title: "Oilfield Daily Reports Service"
+    description: "Drilling daily reports, pre-drilling reports, and key well trial production reports with role-based access control"
 
   oilfield-ui-test:
     type: stdio
@@ -38,6 +54,7 @@ mcpServers:
     args: ["d:\\work\\librechat\\mcp-ui-test\\mcp_server.py"]
     title: "Oilfield UI Test"
     description: "Test server for UI Resource iframe"
+
 # LLM 配置 - DeepSeek 和千问
 endpoints:
   custom:
