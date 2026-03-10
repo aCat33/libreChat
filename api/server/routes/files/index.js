@@ -14,9 +14,15 @@ const files = require('./files');
 const images = require('./images');
 const avatar = require('./avatar');
 const speech = require('./speech');
+const vectorization = require('./vectorization');
 
 const initialize = async () => {
   const router = express.Router();
+  
+  // ⚠️ vectorization 必须在 requireJwtAuth 之前注册
+  // 因为 EventSource 无法发送 Authorization 头，需要通过 URL 参数传递 token
+  router.use('/vectorization', vectorization);
+  
   router.use(requireJwtAuth);
   router.use(configMiddleware);
   router.use(checkBan);
@@ -54,6 +60,7 @@ const initialize = async () => {
   router.use('/images/avatar', avatar);
   router.use('/images/agents', agentAvatarRouter);
   router.use('/images/assistants', asstAvatarRouter);
+  // vectorization 路由已在文件顶部注册（requireJwtAuth 之前）
   return router;
 };
 

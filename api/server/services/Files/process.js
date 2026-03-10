@@ -476,6 +476,10 @@ const processFileUpload = async ({ req, res, metadata }) => {
     },
     true,
   );
+  
+  // 🔍 Debug: 打印返回给前端的文件信息
+  logger.info(`[processFileUpload] Returning to frontend - file_id: ${result.file_id}, temp_file_id: ${temp_file_id}, filename: ${result.filename}`);
+  
   res.status(200).json({ message: 'File uploaded and processed successfully', ...result });
 };
 

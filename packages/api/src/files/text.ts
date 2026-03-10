@@ -6,6 +6,10 @@ import { FileSources } from 'librechat-data-provider';
 import type { ServerRequest } from '~/types';
 import { logAxiosError, readFileAsString } from '~/utils';
 import { generateShortLivedToken } from '~/crypto/jwt';
+import {
+  vectorizationStatusManager,
+  VectorizationStatus,
+} from './vectorizationStatus';
 
 /**
  * Attempts to parse text using RAG API, falls back to native text parsing
@@ -77,6 +81,24 @@ export async function parseText({
 
     if (!('text' in responseData)) {
       throw new Error('RAG API did not return parsed text');
+    }
+
+    // 🔥 只向量化大文档（避免资源浪费）
+    const RAG_VECTOR_THRESHOLD = parseInt(process.env.RAG_VECTOR_THRESHOLD || '5000', 10);
+    const estimatedTokens = Math.ceil(responseData.text.length / 3); // 估算: 1 token ≈ 3 chars
+    
+    if (estimatedTokens >= RAG_VECTOR_THRESHOLD) {
+      logger.info(
+        `[parseText] Document exceeds threshold (${estimatedTokens} tokens ≥ ${RAG_VECTOR_THRESHOLD}), triggering vectorization (ETA: 20-30 seconds)`,
+      );
+      logger.info(`[parseText] 🔍 Starting vectorization for file_id: ${file_id}, filename: ${file.originalname}`);
+      vectorizeDocumentAsync(file, file_id, userId).catch((err) => {
+        logger.warn('[parseText] Async vectorization failed (non-blocking):', err.message);
+      });
+    } else {
+      logger.info(
+        `[parseText] Skipping vectorization for small document (${estimatedTokens} tokens < ${RAG_VECTOR_THRESHOLD}) - Using full-text injection`,
+      );
     }
 
     return {
@@ -163,4 +185,90 @@ export async function parseTextNative(file: Express.Multer.File): Promise<{
     bytes,
     source: FileSources.text,
   };
+}
+
+/**
+ * Asynchronously vectorize document in RAG API (non-blocking)
+ * Called after text extraction to enable vector search
+ * 
+ * @param file - The uploaded file
+ * @param file_id - The file ID
+ * @param userId - User ID for authentication
+ */
+async function vectorizeDocumentAsync(
+  file: Express.Multer.File,
+  file_id: string,
+  userId: string,
+): Promise<void> {
+  if (!process.env.RAG_API_URL) {
+    logger.debug('[vectorizeDocumentAsync] RAG_API_URL not configured, skipping vectorization');
+    return;
+  }
+
+  try {
+    // Update status: Starting vectorization
+    vectorizationStatusManager.updateStatus(file_id, {
+      file_id,
+      filename: file.originalname,
+      status: VectorizationStatus.PROCESSING,
+    });
+
+    const jwtToken = generateShortLivedToken(userId);
+    const formData = new FormData();
+    formData.append('file_id', file_id);
+    
+    // Create new file stream for vectorization
+    const fileStream = createReadStream(file.path);
+    formData.append('file', fileStream, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const formHeaders = formData.getHeaders();
+
+    logger.info(
+      `[vectorizeDocumentAsync] Starting vectorization for file: ${file_id}, path: ${file.path}, mime: ${file.mimetype}`,
+    );
+
+    // 🔧 使用正确的端点 /embed（完整RAG处理）
+    const response = await axios.post(
+      `${process.env.RAG_API_URL}/embed`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          accept: 'application/json',
+          ...formHeaders,
+        },
+        timeout: 300000, // 5 minutes for large documents
+      },
+    );
+
+    logger.info(
+      `[vectorizeDocumentAsync] ✅ Vectorization completed for ${file_id} (status: ${response.status}) - Document is now ready for vector search`,
+    );
+
+    // Update status: Completed
+    vectorizationStatusManager.updateStatus(file_id, {
+      status: VectorizationStatus.COMPLETED,
+      progress: 100,
+    });
+
+    // Clean up stream
+    if (fileStream && typeof (fileStream as any).destroy === 'function') {
+      (fileStream as any).destroy();
+    }
+  } catch (error) {
+    // Update status: Failed
+    vectorizationStatusManager.updateStatus(file_id, {
+      status: VectorizationStatus.FAILED,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    logAxiosError({
+      message: `[vectorizeDocumentAsync] Vectorization failed for ${file_id}`,
+      error,
+    });
+    // Don't rethrow - this is a non-blocking background operation
+  }
 }

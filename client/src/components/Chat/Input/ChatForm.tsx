@@ -19,6 +19,7 @@ import {
   useSubmitMessage,
   useFocusChatEffect,
 } from '~/hooks';
+import { useMultipleVectorizationStatus } from '~/hooks/Files';
 import { mainTextareaId, BadgeItem } from '~/common';
 import AttachFileChat from './Files/AttachFileChat';
 import FileFormChat from './Files/FileFormChat';
@@ -105,6 +106,16 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
     () => requiresKey || invalidAssistant,
     [requiresKey, invalidAssistant],
   );
+
+  // Monitor vectorization status of attached files
+  const fileIds = useMemo(
+    () => Array.from(files?.values() ?? [])
+      .map(file => file.file_id)
+      .filter((id): id is string => !!id),
+    [files],
+  );
+  
+  const { isAnyVectorizing } = useMultipleVectorizationStatus(fileIds, fileIds.length > 0);
 
   const handleContainerClick = useCallback(() => {
     /** Check if the device is a touchscreen */
@@ -347,12 +358,18 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
                     <SendButton
                       ref={submitButtonRef}
                       control={methods.control}
-                      disabled={filesLoading || isSubmitting || disableInputs || isNotAppendable}
+                      disabled={filesLoading || isSubmitting || disableInputs || isNotAppendable || isAnyVectorizing}
                     />
                   )
                 )}
               </div>
             </div>
+            {/* Show warning when files are being vectorized */}
+            {isAnyVectorizing && (
+              <div className="mx-4 mb-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                ⏳ One or more documents are being indexed for intelligent search. Please wait...
+              </div>
+            )}
             {TextToSpeech && automaticPlayback && <StreamAudio index={index} />}
           </div>
         </div>

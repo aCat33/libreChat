@@ -1300,6 +1300,7 @@ class BaseClient {
   /**
    * Extracts text context from attachments and sets it on the message.
    * This handles text that was already extracted from files (OCR, transcriptions, document text, etc.)
+   * Enhanced with hybrid RAG strategy for intelligent document retrieval.
    * @param {TMessage} message - The message to add context to
    * @param {MongoFile[]} attachments - Array of file attachments
    * @returns {Promise<void>}
@@ -1314,6 +1315,7 @@ class BaseClient {
       attachments,
       req: this.options?.req,
       tokenCountFn: (text) => countTokens(text),
+      userQuery: message.text || message.content, // Pass user query for vector search
     });
 
     if (fileContext) {
