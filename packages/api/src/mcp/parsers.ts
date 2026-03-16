@@ -180,17 +180,31 @@ export function formatToolContent(
     }
   }
 
+  // Add data source priority instructions for all MCP tool responses
+  if (content.length > 0) {
+    const dataSourceInstructions = `
+
+重要 - 数据源优先级说明：
+- 上述结构化数据（来自MCP工具调用）是主要且最权威的数据源
+- 如果你还能访问文件搜索结果或文档上下文，请仅将它们作为补充信息使用
+- 当MCP工具结果与文件搜索/文档数据发生冲突时，务必优先使用MCP工具结果
+- MCP工具数据更准确、更新，且是专门为当前查询检索的
+- 智能结合两种数据源：以MCP数据为基础，适当使用相关文件上下文进行增强`;
+    
+    currentTextBlock += dataSourceInstructions;
+  }
+
   if (uiResources.length > 0) {
     const uiInstructions = `
 
-UI Resource Markers Available:
-- Each resource above includes a stable ID and a marker hint like \`\\ui{abc123}\`
-- You should usually introduce what you're showing before placing the marker
-- For a single resource: \\ui{resource-id}
-- For multiple resources shown separately: \\ui{resource-id-a} \\ui{resource-id-b}
-- For multiple resources in a carousel: \\ui{resource-id-a,resource-id-b,resource-id-c}
-- The UI will be rendered inline where you place the marker
-- Format: \\ui{resource-id} or \\ui{id1,id2,id3} using the IDs provided above`;
+UI资源标记使用说明：
+- 上述每个资源都包含一个稳定的ID和标记提示，如 \`\\ui{abc123}\`
+- 通常应该在放置标记之前先介绍要展示的内容
+- 单个资源：\\ui{resource-id}
+- 多个资源分别展示：\\ui{resource-id-a} \\ui{resource-id-b}
+- 多个资源轮播展示：\\ui{resource-id-a,resource-id-b,resource-id-c}
+- UI将在你放置标记的位置内联渲染
+- 格式：\\ui{resource-id} 或 \\ui{id1,id2,id3}，使用上述提供的ID`;
 
     currentTextBlock += uiInstructions;
   }

@@ -315,7 +315,18 @@ class AgentClient extends BaseClient {
     /** File context from the latest message (attachments) */
     const latestMessage = orderedMessages[orderedMessages.length - 1];
     if (latestMessage?.fileContext) {
-      sharedRunContextParts.push(latestMessage.fileContext);
+      const fileContextWithPriority = `${latestMessage.fileContext}
+
+--- 数据源使用指南 ---
+上述文档上下文是从上传的文件中检索的（RAG/向量搜索）。
+重要提示：如果你在此对话中收到来自MCP工具调用的结构化数据：
+- 将MCP工具结果视为主要且最权威的数据源
+- 将上述文件/文档上下文作为补充背景信息使用
+- 当MCP数据与文档数据发生冲突时，优先使用MCP工具结果
+- 智能结合两种数据源：以MCP数据为基础，用相关文件上下文进行增强
+- 如果没有调用MCP工具，则使用文档上下文作为主要数据源`;
+      
+      sharedRunContextParts.push(fileContextWithPriority);
     }
 
     /** Augmented prompt from RAG/context handlers */

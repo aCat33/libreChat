@@ -5,6 +5,7 @@ import { logger } from '@librechat/data-schemas';
 import { FileSources } from 'librechat-data-provider';
 import type { ServerRequest } from '~/types';
 import { logAxiosError, readFileAsString } from '~/utils';
+import { countTokens } from '~/utils/tokenizer';
 import { generateShortLivedToken } from '~/crypto/jwt';
 import {
   vectorizationStatusManager,
@@ -85,19 +86,21 @@ export async function parseText({
 
     // 🔥 只向量化大文档（避免资源浪费）
     const RAG_VECTOR_THRESHOLD = parseInt(process.env.RAG_VECTOR_THRESHOLD || '5000', 10);
-    const estimatedTokens = Math.ceil(responseData.text.length / 3); // 估算: 1 token ≈ 3 chars
+    // 使用真正的 tiktoken 精确计算（与 extractFileContext 保持一致）
+    const actualTokens = await countTokens(responseData.text);
+    const fileSizeKB = (file.size / 1024).toFixed(2);
+    const strategy = actualTokens >= RAG_VECTOR_THRESHOLD ? '向量检索' : '全文注入';
     
-    if (estimatedTokens >= RAG_VECTOR_THRESHOLD) {
+    if (actualTokens >= RAG_VECTOR_THRESHOLD) {
       logger.info(
-        `[parseText] Document exceeds threshold (${estimatedTokens} tokens ≥ ${RAG_VECTOR_THRESHOLD}), triggering vectorization (ETA: 20-30 seconds)`,
+        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy} | 状态: 开始向量化`,
       );
-      logger.info(`[parseText] 🔍 Starting vectorization for file_id: ${file_id}, filename: ${file.originalname}`);
-      vectorizeDocumentAsync(file, file_id, userId).catch((err) => {
-        logger.warn('[parseText] Async vectorization failed (non-blocking):', err.message);
+      vectorizeDocumentAsync(file, file_id, userId, actualTokens, fileSizeKB).catch((err) => {
+        logger.error(`❌ [向量化失败] ${file.originalname} - ${err.message}`);
       });
     } else {
       logger.info(
-        `[parseText] Skipping vectorization for small document (${estimatedTokens} tokens < ${RAG_VECTOR_THRESHOLD}) - Using full-text injection`,
+        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy}`,
       );
     }
 
@@ -194,11 +197,15 @@ export async function parseTextNative(file: Express.Multer.File): Promise<{
  * @param file - The uploaded file
  * @param file_id - The file ID
  * @param userId - User ID for authentication
+ * @param actualTokens - Actual token count (calculated by tiktoken)
+ * @param fileSizeKB - File size in KB
  */
 async function vectorizeDocumentAsync(
   file: Express.Multer.File,
   file_id: string,
   userId: string,
+  actualTokens?: number,
+  fileSizeKB?: string,
 ): Promise<void> {
   if (!process.env.RAG_API_URL) {
     logger.debug('[vectorizeDocumentAsync] RAG_API_URL not configured, skipping vectorization');
@@ -226,9 +233,7 @@ async function vectorizeDocumentAsync(
 
     const formHeaders = formData.getHeaders();
 
-    logger.info(
-      `[vectorizeDocumentAsync] Starting vectorization for file: ${file_id}, path: ${file.path}, mime: ${file.mimetype}`,
-    );
+    // 开始向量化（无需详细日志，已在上传时输出）
 
     // 🔧 使用正确的端点 /embed（完整RAG处理）
     const response = await axios.post(
@@ -245,7 +250,7 @@ async function vectorizeDocumentAsync(
     );
 
     logger.info(
-      `[vectorizeDocumentAsync] ✅ Vectorization completed for ${file_id} (status: ${response.status}) - Document is now ready for vector search`,
+      `✅ [向量化完成] ${file.originalname} | 文档已就绪，可进行向量检索`,
     );
 
     // Update status: Completed
@@ -266,7 +271,7 @@ async function vectorizeDocumentAsync(
     });
 
     logAxiosError({
-      message: `[vectorizeDocumentAsync] Vectorization failed for ${file_id}`,
+      message: `❌ [向量化失败] ${file.originalname}`,
       error,
     });
     // Don't rethrow - this is a non-blocking background operation

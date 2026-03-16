@@ -228,17 +228,19 @@ export function useVectorizationStatus(fileId: string | null, enabled = true) {
  * Hook to monitor multiple files' vectorization status
  */
 export function useMultipleVectorizationStatus(fileIds: string[], enabled = true) {
+  const { token } = useAuthContext();
   const [statuses, setStatuses] = useState<Record<string, VectorizationState>>({});
 
   useEffect(() => {
-    if (!enabled || fileIds.length === 0) {
+    if (!enabled || fileIds.length === 0 || !token || token.trim() === '') {
       return;
     }
 
     const sources: Record<string, EventSource> = {};
 
     fileIds.forEach((fileId) => {
-      const eventSource = new EventSource(`/api/files/vectorization/status/${fileId}`);
+      const url = `/api/files/vectorization/status/${fileId}?token=${encodeURIComponent(token)}`;
+      const eventSource = new EventSource(url);
 
       eventSource.onmessage = (event) => {
         if (event.data === ': connected' || event.data === ': heartbeat') {
@@ -258,13 +260,17 @@ export function useMultipleVectorizationStatus(fileIds: string[], enabled = true
         }
       };
 
+      eventSource.onerror = (err) => {
+        console.error(`[useMultipleVectorizationStatus] SSE error for ${fileId}:`, err);
+      };
+
       sources[fileId] = eventSource;
     });
 
     return () => {
       Object.values(sources).forEach((source) => source.close());
     };
-  }, [fileIds.join(','), enabled]);
+  }, [fileIds.join(','), enabled, token]);
 
   return {
     statuses,

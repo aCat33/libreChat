@@ -214,7 +214,7 @@ export async function extractFileContext({
   }
 
   if (resultText) {
-    resultText += '\n```';
+    resultText += '\n```\n\n--- 文档上下文说明 ---\n此上下文来自上传的文件。如果对话中MCP工具调用提供了结构化数据，当出现冲突时请优先使用MCP数据而非此文档上下文。';
     return resultText;
   }
 

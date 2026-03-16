@@ -35,8 +35,6 @@ class VectorizationStatusManager {
    * Update vectorization status and notify listeners
    */
   updateStatus(fileId: string, update: Partial<VectorizationState>): void {
-    console.log(`[VectorizationStatusManager] 🔄 updateStatus called for ${fileId}:`, update);
-    
     const current = this.states.get(fileId) || {
       file_id: fileId,
       filename: update.filename || 'Unknown',
@@ -54,8 +52,6 @@ class VectorizationStatusManager {
     }
 
     this.states.set(fileId, newState);
-    console.log(`[VectorizationStatusManager] ✅ Updated state for ${fileId}:`, newState);
-    console.log(`[VectorizationStatusManager] Number of listeners for ${fileId}:`, this.listeners.get(fileId)?.size || 0);
     logger.debug(`[VectorizationStatusManager] Updated status for ${fileId}: ${newState.status}`);
 
     // Notify all listeners for this file
@@ -118,10 +114,8 @@ class VectorizationStatusManager {
    */
   private notifyListeners(fileId: string, state: VectorizationState): void {
     const listeners = this.listeners.get(fileId);
-    console.log(`[VectorizationStatusManager] 📡 notifyListeners for ${fileId}, listeners count: ${listeners?.size || 0}`);
     
     if (!listeners || listeners.size === 0) {
-      console.log(`[VectorizationStatusManager] ⚠️ No listeners for ${fileId}, skipping notification`);
       return;
     }
 
@@ -129,7 +123,6 @@ class VectorizationStatusManager {
 
     for (const res of listeners) {
       try {
-        console.log(`[VectorizationStatusManager] ✉️ Sending event to listener for ${fileId}`);
         this.sendEvent(res, state);
       } catch (error) {
         logger.error(`[VectorizationStatusManager] Failed to send event:`, error);
@@ -143,7 +136,6 @@ class VectorizationStatusManager {
    */
   private sendEvent(res: ServerResponse, state: VectorizationState): void {
     if (res.writableEnded) {
-      console.log('[VectorizationStatusManager] ⚠️ Response already ended, cannot send event');
       return;
     }
 
@@ -151,16 +143,12 @@ class VectorizationStatusManager {
       event: 'vectorization_status',
       data: state,
     });
-
-    console.log('[VectorizationStatusManager] 📤 Sending SSE message:', payload.substring(0, 100) + '...');
     
     // Standard SSE format: data: {...}\n\n
     const message = `data: ${payload}\n\n`;
-    console.log('[VectorizationStatusManager] 📤 Raw SSE message length:', message.length);
     
     try {
       res.write(message);
-      console.log('[VectorizationStatusManager] ✅ Message sent successfully');
     } catch (error) {
       console.error('[VectorizationStatusManager] ❌ Failed to write message:', error);
     }
