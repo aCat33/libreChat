@@ -20,45 +20,44 @@ app = Server("oilfield-ui-demo")
 # 定义工具列表
 TOOLS = [
     Tool(
-        name="get_vessel_report",
-        description="获取船舶报表页面 - 返回可交互的 iframe 页面",
+        name="show_homepage",
+        description="打开项目主页 - 显示项目的首页或欢迎页面",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    ),
+    Tool(
+        name="show_dashboard",
+        description="显示仪表盘 - 打开项目的仪表盘或数据展示页面",
         inputSchema={
             "type": "object",
             "properties": {
-                "vessel_id": {
+                "page": {
                     "type": "string",
-                    "description": "船舶ID（可选）",
+                    "description": "要显示的页面路径（如 dashboard, list, report 等）",
                 }
             },
             "required": [],
         },
     ),
     Tool(
-        name="get_drilling_dashboard",
-        description="获取公司信息页面 - 返回公司详细信息和数据",
+        name="show_details",
+        description="显示详情页 - 打开详细信息页面，可以传递 ID 或参数",
         inputSchema={
             "type": "object",
             "properties": {
-                "company_id": {
+                "id": {
                     "type": "string",
-                    "description": "公司ID（可选）",
+                    "description": "记录ID或标识符",
+                },
+                "page": {
+                    "type": "string",
+                    "description": "详情页路径（如 details, view, info 等）",
                 }
             },
             "required": [],
-        },
-    ),
-    Tool(
-        name="get_well_details",
-        description="获取合同详情页面 - 返回合同的详细信息",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "contract_id": {
-                    "type": "string",
-                    "description": "合同ID或编号",
-                }
-            },
-            "required": ["contract_id"],
         },
     ),
 ]
@@ -74,11 +73,8 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> CallToolResult:
     """处理工具调用"""
     
-    if name == "get_vessel_report":
-        vessel_id = arguments.get("vessel_id", "default")
-        
-        # 直接返回 iframe，指向已有的本地服务
-        # 修改这里的 URL 为你实际的本地服务地址
+    if name == "show_homepage":
+        # 显示项目首页
         iframe_html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -97,7 +93,7 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
     </style>
 </head>
 <body>
-    <iframe src=\"http://localhost:12308/vessel\" title=\"船舶报表\" allowfullscreen></iframe>
+    <iframe src="http://localhost:12309/" title="项目主页" allowfullscreen></iframe>
 </body>
 </html>"""
         
@@ -105,24 +101,26 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
             content=[
                 TextContent(
                     type="text",
-                    text=f"正在为您打开船舶报表系统（船舶ID: {vessel_id}）..."
+                    text="正在为您打开项目主页..."
                 ),
                 {
                     "type": "resource",
                     "resource": {
-                        "uri": f"ui://vessel-report-{vessel_id}-{int(datetime.now().timestamp())}",
+                        "uri": f"ui://homepage-{int(datetime.now().timestamp())}",
                         "mimeType": "text/html",
                         "text": iframe_html,
-                        "name": f"船舶报表 - {vessel_id}",
+                        "name": "项目主页",
                     }
                 }
             ]
         )
     
-    elif name == "get_drilling_dashboard":
-        company_id = arguments.get("company_id", "default")
+    elif name == "show_dashboard":
+        page = arguments.get("page", "dashboard")
         
-        # 直接返回 iframe，指向公司信息页面
+        # 构建 URL（如果有指定页面路径）
+        url = f"http://localhost:12309/{page}" if page != "dashboard" else "http://localhost:12309/dashboard"
+        
         dashboard_html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -141,7 +139,7 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
     </style>
 </head>
 <body>
-    <iframe src="http://localhost:12308/company" allowfullscreen></iframe>
+    <iframe src="{url}" allowfullscreen></iframe>
 </body>
 </html>"""
         
@@ -149,24 +147,30 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
             content=[
                 TextContent(
                     type="text",
-                    text=f"正在为您打开公司信息页面（公司ID: {company_id}）..."
+                    text=f"正在为您打开 {page} 页面..."
                 ),
                 {
                     "type": "resource",
                     "resource": {
-                        "uri": f"ui://company-info-{company_id}-{int(datetime.now().timestamp())}",
+                        "uri": f"ui://dashboard-{page}-{int(datetime.now().timestamp())}",
                         "mimeType": "text/html",
                         "text": dashboard_html,
-                        "name": f"公司信息 - {company_id}",
+                        "name": f"{page} 页面",
                     }
                 }
             ]
         )
     
-    elif name == "get_well_details":
-        contract_id = arguments.get("contract_id", "未知")
+    elif name == "show_details":
+        record_id = arguments.get("id", "")
+        page = arguments.get("page", "details")
         
-        # 直接返回 iframe，指向合同详情页面
+        # 构建 URL（带参数）
+        if record_id:
+            url = f"http://localhost:12309/{page}?id={record_id}"
+        else:
+            url = f"http://localhost:12309/{page}"
+        
         simple_iframe = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -185,23 +189,26 @@ async def call_tool(name: str, arguments: dict) -> CallToolResult:
     </style>
 </head>
 <body>
-    <iframe src=\"http://localhost:12308/contract\" allowfullscreen></iframe>
+    <iframe src=\"{url}\" allowfullscreen></iframe>
 </body>
 </html>"""
+        
+        display_text = f"正在为您打开详情页面（ID: {record_id}）..." if record_id else "正在为您打开详情页面..."
+        display_name = f"详情 - {record_id}" if record_id else "详情页面"
         
         return CallToolResult(
             content=[
                 TextContent(
                     type="text",
-                    text=f"正在为您打开合同详情页面（合同编号: {contract_id}）..."
+                    text=display_text
                 ),
                 {
                     "type": "resource",
                     "resource": {
-                        "uri": f"ui://contract-details-{contract_id}-{int(datetime.now().timestamp())}",
+                        "uri": f"ui://details-{page}-{record_id}-{int(datetime.now().timestamp())}",
                         "mimeType": "text/html",
                         "text": simple_iframe,
-                        "name": f"合同详情 - {contract_id}",
+                        "name": display_name,
                     }
                 }
             ]

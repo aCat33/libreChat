@@ -1,0 +1,110 @@
+version: 1.3.1
+cache: true
+
+# 文件上传配置 - 本地解析
+fileConfig:
+  # 文件上下文的最大 token 数（用于限制传递给模型的文本长度）
+  fileTokenLimit: 8000
+  
+  # 服务器端文件大小限制（MB）
+  serverFileSizeLimit: 20
+  
+  endpoints:
+    # DeepSeek 端点的文件配置
+    DeepSeek:
+      fileLimit: 10          # 每次最多上传 10 个文件
+      fileSizeLimit: 20      # 单个文件最大 20MB
+      totalSizeLimit: 50     # 总大小最大 50MB
+      disabled: false        # 启用文件上传
+    
+    # 千问端点的文件配置
+    Qwen:
+      fileLimit: 10
+      fileSizeLimit: 20
+      totalSizeLimit: 50
+      disabled: false
+
+# 启用 MCP 功能
+interface:
+  mcpServers:
+    use: true      # 允许用户使用配置的 MCP 服务器
+    share: false   # 不允许分享
+    create: false   # 不允许用户创建MCP服务器（true用于通过UI配置基于角色的MCP）
+    public: false  # 不允许公开分享
+  artifacts: true  # 启用 Artifacts 功能（可预览的交互式内容）
+
+# MCP域名白名单
+mcpSettings:
+  allowedDomains:
+    - "http://localhost:8080"
+    - "http://127.0.0.1:8080"
+
+mcpServers:
+  # 单个HTTP MCP Server，服务所有用户
+  oilfield-drilling:
+    type: http
+    url: "http://localhost:8080/sse"
+    
+    # ⭐ 关键：通过headers传递用户信息
+    headers:
+      X-User-Role: "{{LIBRECHAT_USER_ROLE}}"
+      X-User-Email: "{{LIBRECHAT_USER_EMAIL}}"
+      X-User-ID: "{{LIBRECHAT_USER_ID}}"
+    
+    title: "Oilfield Drilling Data Service"
+    description: "Provides oilfield drilling data query management and analysis with role based access control"
+
+# LLM 配置 - DeepSeek 和千问
+endpoints:
+  custom:
+    # DeepSeek端点 - 适合通用对话和编程
+    - name: "DeepSeek"
+      apiKey: "${DEEPSEEK_API_KEY}"
+      baseURL: "https://api.deepseek.com/v1"
+      models:
+        default:
+          - "deepseek-chat"
+          - "deepseek-coder"
+        fetch: false
+      titleConvo: true
+      titleModel: "deepseek-chat"
+      summarize: false
+      summaryModel: "deepseek-chat"
+      forcePrompt: false
+      modelDisplayLabel: "DeepSeek"
+      # 启用记忆功能
+      memory:
+        enabled: true
+      addParams:
+        max_tokens: 4096
+        temperature: 1
+        top_p: 1
+        frequency_penalty: 0
+        presence_penalty: 0
+      dropParams: ["top_p", "frequency_penalty", "presence_penalty"]
+    
+    # 千问端点 - 适合中文场景和复杂推理
+    - name: "Qwen"
+      apiKey: "${QWEN_CUSTOM_API_KEY}"
+      baseURL: "http://cloud.tanheidc.cn:9998/v1"
+      models:
+        default:
+          - "Qwen3-Thinking"
+          - "Qwen2.5-72B-Instruct"
+          - "Qwen2.5-32B-Instruct"
+          - "Qwen2.5-14B-Instruct"
+          - "Qwen2.5-7B-Instruct"
+        fetch: false
+      titleConvo: true
+      titleModel: "Qwen3-Thinking"
+      summarize: false
+      summaryModel: "Qwen3-Thinking"
+      forcePrompt: false
+      modelDisplayLabel: "千问"
+      # 启用记忆功能
+      memory:
+        enabled: true
+      addParams:
+        max_tokens: 2000
+        temperature: 0.7
+      dropParams: []
