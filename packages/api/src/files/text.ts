@@ -5,7 +5,12 @@ import { logger } from '@librechat/data-schemas';
 import { FileSources } from 'librechat-data-provider';
 import type { ServerRequest } from '~/types';
 import { logAxiosError, readFileAsString } from '~/utils';
+import { countTokens } from '~/utils/tokenizer';
 import { generateShortLivedToken } from '~/crypto/jwt';
+import {
+  vectorizationStatusManager,
+  VectorizationStatus,
+} from './vectorizationStatus';
 
 /**
  * Attempts to parse text using RAG API, falls back to native text parsing
@@ -77,6 +82,26 @@ export async function parseText({
 
     if (!('text' in responseData)) {
       throw new Error('RAG API did not return parsed text');
+    }
+
+    // 🔥 只向量化大文档（避免资源浪费）
+    const RAG_VECTOR_THRESHOLD = parseInt(process.env.RAG_VECTOR_THRESHOLD || '5000', 10);
+    // 使用真正的 tiktoken 精确计算（与 extractFileContext 保持一致）
+    const actualTokens = await countTokens(responseData.text);
+    const fileSizeKB = (file.size / 1024).toFixed(2);
+    const strategy = actualTokens >= RAG_VECTOR_THRESHOLD ? '向量检索' : '全文注入';
+    
+    if (actualTokens >= RAG_VECTOR_THRESHOLD) {
+      logger.info(
+        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy} | 状态: 开始向量化`,
+      );
+      vectorizeDocumentAsync(file, file_id, userId, actualTokens, fileSizeKB).catch((err) => {
+        logger.error(`❌ [向量化失败] ${file.originalname} - ${err.message}`);
+      });
+    } else {
+      logger.info(
+        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy}`,
+      );
     }
 
     return {
@@ -163,4 +188,92 @@ export async function parseTextNative(file: Express.Multer.File): Promise<{
     bytes,
     source: FileSources.text,
   };
+}
+
+/**
+ * Asynchronously vectorize document in RAG API (non-blocking)
+ * Called after text extraction to enable vector search
+ * 
+ * @param file - The uploaded file
+ * @param file_id - The file ID
+ * @param userId - User ID for authentication
+ * @param actualTokens - Actual token count (calculated by tiktoken)
+ * @param fileSizeKB - File size in KB
+ */
+async function vectorizeDocumentAsync(
+  file: Express.Multer.File,
+  file_id: string,
+  userId: string,
+  actualTokens?: number,
+  fileSizeKB?: string,
+): Promise<void> {
+  if (!process.env.RAG_API_URL) {
+    logger.debug('[vectorizeDocumentAsync] RAG_API_URL not configured, skipping vectorization');
+    return;
+  }
+
+  try {
+    // Update status: Starting vectorization
+    vectorizationStatusManager.updateStatus(file_id, {
+      file_id,
+      filename: file.originalname,
+      status: VectorizationStatus.PROCESSING,
+    });
+
+    const jwtToken = generateShortLivedToken(userId);
+    const formData = new FormData();
+    formData.append('file_id', file_id);
+    
+    // Create new file stream for vectorization
+    const fileStream = createReadStream(file.path);
+    formData.append('file', fileStream, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const formHeaders = formData.getHeaders();
+
+    // 开始向量化（无需详细日志，已在上传时输出）
+
+    // 🔧 使用正确的端点 /embed（完整RAG处理）
+    const response = await axios.post(
+      `${process.env.RAG_API_URL}/embed`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          accept: 'application/json',
+          ...formHeaders,
+        },
+        timeout: 300000, // 5 minutes for large documents
+      },
+    );
+
+    logger.info(
+      `✅ [向量化完成] ${file.originalname} | 文档已就绪，可进行向量检索`,
+    );
+
+    // Update status: Completed
+    vectorizationStatusManager.updateStatus(file_id, {
+      status: VectorizationStatus.COMPLETED,
+      progress: 100,
+    });
+
+    // Clean up stream
+    if (fileStream && typeof (fileStream as any).destroy === 'function') {
+      (fileStream as any).destroy();
+    }
+  } catch (error) {
+    // Update status: Failed
+    vectorizationStatusManager.updateStatus(file_id, {
+      status: VectorizationStatus.FAILED,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    logAxiosError({
+      message: `❌ [向量化失败] ${file.originalname}`,
+      error,
+    });
+    // Don't rethrow - this is a non-blocking background operation
+  }
 }

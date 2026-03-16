@@ -4,6 +4,7 @@ const { logger } = require('@librechat/data-schemas');
 const {
   countTokens,
   getBalanceConfig,
+  buildMessageFiles,
   extractFileContext,
   encodeAndFormatAudios,
   encodeAndFormatVideos,
@@ -20,6 +21,7 @@ const {
   isAgentsEndpoint,
   isEphemeralAgentId,
   supportsBalanceCheck,
+  isBedrockDocumentType,
 } = require('librechat-data-provider');
 const {
   updateMessage,
@@ -122,7 +124,9 @@ class BaseClient {
    * @returns {number}
    */
   getTokenCountForResponse(responseMessage) {
-    logger.debug('[BaseClient] `recordTokenUsage` not implemented.', responseMessage);
+    logger.debug('[BaseClient] `recordTokenUsage` not implemented.', {
+      messageId: responseMessage?.messageId,
+    });
   }
 
   /**
@@ -133,12 +137,14 @@ class BaseClient {
    * @param {AppConfig['balance']} [balance]
    * @param {number} promptTokens
    * @param {number} completionTokens
+   * @param {string} [messageId]
    * @returns {Promise<void>}
    */
-  async recordTokenUsage({ model, balance, promptTokens, completionTokens }) {
+  async recordTokenUsage({ model, balance, promptTokens, completionTokens, messageId }) {
     logger.debug('[BaseClient] `recordTokenUsage` not implemented.', {
       model,
       balance,
+      messageId,
       promptTokens,
       completionTokens,
     });
@@ -659,16 +665,27 @@ class BaseClient {
     );
 
     if (tokenCountMap) {
-      logger.debug('[BaseClient] tokenCountMap', tokenCountMap);
       if (tokenCountMap[userMessage.messageId]) {
         userMessage.tokenCount = tokenCountMap[userMessage.messageId];
-        logger.debug('[BaseClient] userMessage', userMessage);
+        logger.debug('[BaseClient] userMessage', {
+          messageId: userMessage.messageId,
+          tokenCount: userMessage.tokenCount,
+          conversationId: userMessage.conversationId,
+        });
       }
 
       this.handleTokenCountMap(tokenCountMap);
     }
 
     if (!isEdited && !this.skipSaveUserMessage) {
+      const reqFiles = this.options.req?.body?.files;
+      if (reqFiles && Array.isArray(this.options.attachments)) {
+        const files = buildMessageFiles(reqFiles, this.options.attachments);
+        if (files.length > 0) {
+          userMessage.files = files;
+        }
+        delete userMessage.image_urls;
+      }
       userMessagePromise = this.saveMessageToDatabase(userMessage, saveOptions, user);
       this.savedMessageIds.add(userMessage.messageId);
       if (typeof opts?.getReqData === 'function') {
@@ -780,9 +797,18 @@ class BaseClient {
           promptTokens,
           completionTokens,
           balance: balanceConfig,
-          model: responseMessage.model,
+          /** Note: When using agents, responseMessage.model is the agent ID, not the model */
+          model: this.model,
+          messageId: this.responseMessageId,
         });
       }
+
+      logger.debug('[BaseClient] Response token usage', {
+        messageId: responseMessage.messageId,
+        model: responseMessage.model,
+        promptTokens,
+        completionTokens,
+      });
     }
 
     if (userMessagePromise) {
@@ -1274,6 +1300,7 @@ class BaseClient {
   /**
    * Extracts text context from attachments and sets it on the message.
    * This handles text that was already extracted from files (OCR, transcriptions, document text, etc.)
+   * Enhanced with hybrid RAG strategy for intelligent document retrieval.
    * @param {TMessage} message - The message to add context to
    * @param {MongoFile[]} attachments - Array of file attachments
    * @returns {Promise<void>}
@@ -1288,6 +1315,7 @@ class BaseClient {
       attachments,
       req: this.options?.req,
       tokenCountFn: (text) => countTokens(text),
+      userQuery: message.text || message.content, // Pass user query for vector search
     });
 
     if (fileContext) {
@@ -1305,6 +1333,9 @@ class BaseClient {
 
     const allFiles = [];
 
+    const provider = this.options.agent?.provider ?? this.options.endpoint;
+    const isBedrock = provider === EModelEndpoint.bedrock;
+
     for (const file of attachments) {
       /** @type {FileSources} */
       const source = file.source ?? FileSources.local;
@@ -1320,6 +1351,9 @@ class BaseClient {
       if (file.type.startsWith('image/')) {
         categorizedAttachments.images.push(file);
       } else if (file.type === 'application/pdf') {
+        categorizedAttachments.documents.push(file);
+        allFiles.push(file);
+      } else if (isBedrock && isBedrockDocumentType(file.type)) {
         categorizedAttachments.documents.push(file);
         allFiles.push(file);
       } else if (file.type.startsWith('video/')) {
