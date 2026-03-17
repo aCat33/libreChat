@@ -39,7 +39,22 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content, isDarkMode = t
         if (svgElement) {
           svgElement.style.width = '100%';
           svgElement.style.height = '100%';
+
+          svgElement.querySelectorAll('path').forEach((path) => {
+            path.style.strokeWidth = '1.5px';
+          });
+
+          svgElement.querySelectorAll('rect').forEach((rect) => {
+            const parent = rect.parentElement;
+            if (parent && parent.classList.contains('node')) {
+              rect.style.stroke = '#636D83';
+              rect.style.strokeWidth = '1px';
+            } else {
+              rect.style.stroke = 'none';
+            }
+          });
         }
+
         setIsRendered(true);
       } catch (error) {
         console.error('Mermaid rendering error:', error);
@@ -48,8 +63,10 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content, isDarkMode = t
           const escapedError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
           mermaidRef.current.innerHTML =
             '<div style="padding: 20px; color: #ff6b6b; font-family: monospace;">' +
-              '<h3>Error rendering diagram</h3>' +
-              '<pre style="white-space: pre-wrap; word-break: break-word;">' + escapedError + '</pre>' +
+            '<h3>Error rendering diagram</h3>' +
+            '<pre style="white-space: pre-wrap; word-break: break-word;">' +
+            escapedError +
+            '</pre>' +
             '</div>';
         }
       }

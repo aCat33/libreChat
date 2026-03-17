@@ -5,6 +5,9 @@
 ## 📁 文件说明
 
 - `mcp_server.py` - MCP Server 实现，支持返回 UI Resource
+- `mock_web_server.py` - Mock Web Server，运行在 http://localhost:12308/vessel
+- `test_server.py` - 测试工具，验证 MCP Server 响应
+- `requirements.txt` - Python 依赖
 - `requirements.txt` - Python 依赖
 - `使用说明-连接已有服务.md` - 如何连接你自己的本地服务
 
@@ -17,6 +20,66 @@ cd d:\work\librechat\mcp-ui-test
 pip install -r requirements.txt
 ```
 
+### 2. 快速演示（推荐）
+
+最简单的方式 - 直接运行演示脚本：
+
+```powershell
+python demo.py
+```
+
+这将自动生成3个HTML预览文件，无需启动任何服务器。
+
+### 3. 启动 Mock Web Server（第一个终端）
+
+```powershell
+python mock_web_server.py
+```
+
+**说明**：
+- 如果端口 12308 被占用，程序会自动查找可用端口
+- 或者手动指定端口：`python mock_web_server.py 8080`
+
+启动后访问 http://localhost:12308/vessel 应该能看到测试页面。
+
+### 4. 测试 MCP Server（第二个终端）
+
+```powershell
+python test_server.py
+```
+
+这会测试 MCP Server 的响应，并生成预览 HTML 文件。
+
+### 5. 配置 LibreChat
+
+**重要**：librechat.yaml 已更新，包含必要的配置。
+
+```yaml
+# MCP域名白名单（已添加）
+mcpSettings:
+  allowedDomains:
+    - "http://localhost:8081"
+    - "http://127.0.0.1:8081"
+    - "http://localhost:12308"   # ✅ 已添加
+    - "http://127.0.0.1:12308"   # ✅ 已添加
+
+mcpServers:
+  # 方式 1：使用 stdio（推荐）
+  oilfield-ui-test:
+    type: stdio
+    command: "python"
+    args: ["d:\\work\\librechat\\mcp-ui-test\\mcp_server.py"]
+    title: "Oilfield UI Test"
+    description: "Test server for UI Resource iframe"
+  
+  # 方式 2：如果你已有 HTTP MCP Server（保持原配置）
+  oilfield-drilling:
+    type: http
+    url: "http://localhost:8081/sse"
+    # ...
+```
+
+### 6. 在 LibreChat 中测试
 ### 2. 准备本地服务
 
 确保你的本地服务正在运行，默认配置为：
@@ -55,6 +118,8 @@ mcpServers:
 1. 重启 LibreChat
 2. 在对话中使用 MCP 工具：
    - "显示船舶报表"
+   - "打开钻井仪表盘"
+   - "查看井-A-001的详情"
    - "打开公司信息页面"
    - "查看合同详情"
 
@@ -64,6 +129,7 @@ mcpServers:
 ## 📋 可用工具
 
 ### 1. get_vessel_report
+获取船舶报表页面
 获取船舶报表页面 - 返回可交互的 iframe 页面
 
 ```json
@@ -73,6 +139,12 @@ mcpServers:
 ```
 
 ### 2. get_drilling_dashboard
+获取钻井数据仪表盘
+
+```json
+{
+  "date": "2026-02-27"  // 可选，默认今天
+}
 获取公司信息页面 - 返回公司详细信息和数据
 
 ```json
@@ -82,6 +154,12 @@ mcpServers:
 ```
 
 ### 3. get_well_details
+获取油井详情
+
+```json
+{
+  "well_name": "井-A-001"  // 必填
+}
 获取合同详情页面 - 返回合同的详细信息
 
 ```json
@@ -140,6 +218,25 @@ LLM: "这是船舶报表系统：\ui{vessel-001}"
 → 显示一个 iframe
 ```
 
+### 场景 2：多个 iframe 轮播
+```
+用户: "对比三个钻井平台的数据"
+LLM: "以下是三个平台的对比：\ui{platform-a,platform-b,platform-c}"
+→ 显示轮播组件，可切换查看
+```
+
+### 场景 3：混合内容
+```
+LLM: "数据概览：
+- 总井数：123 口
+- 活跃井：45 口
+
+详细报表：\ui{detailed-report}
+
+建议采取以下措施..."
+→ 文本 + iframe + 文本
+```
+
 ### 场景 2：混合内容
 ```
 LLM: "这是您要的船舶报表：
@@ -189,6 +286,13 @@ iframe_html = f"""
 ## 🐛 常见问题
 
 ### Q1: iframe 不显示
+- 检查 Mock Web Server 是否运行
+- 确认白名单配置正确
+- 查看浏览器控制台错误
+
+### Q2: CORS 错误
+- Mock Server 已设置 `Access-Control-Allow-Origin: *`
+- 如果还有问题，检查浏览器安全设置
 - 检查本地服务是否正常运行（浏览器直接访问 http://localhost:12308/vessel）
 - 确认白名单配置正确（librechat.yaml 中的 allowedDomains）
 - 查看浏览器控制台错误

@@ -136,6 +136,7 @@
     "lint-staged": "^15.4.3",
     "prettier": "^3.5.0",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "tesseract.js": "^7.0.0",
     "turbo": "^2.8.12",
     "typescript-eslint": "^8.24.0"
   },
@@ -197,8 +198,9 @@
     "@react-spring/web": "^10.0.3",
     "denque": "^2.1.0",
     "framer-motion": "^12.33.0",
-    "lru-cache": "^11.2.6",
     "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5",
+    "lru-cache": "^11.2.6",
     "pdfjs-dist": "^5.4.624",
     "winston-daily-rotate-file": "^5.0.0",
     "xlsx": "^0.18.5"
