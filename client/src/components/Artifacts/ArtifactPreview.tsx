@@ -1,4 +1,4 @@
-import React, { memo, useMemo, type MutableRefObject } from 'react';
+import React, { memo, useMemo, useState, type MutableRefObject } from 'react';
 import { SandpackPreview, SandpackProvider } from '@codesandbox/sandpack-react/unstyled';
 import type {
   SandpackProviderProps,
@@ -6,6 +6,7 @@ import type {
 } from '@codesandbox/sandpack-react/unstyled';
 import type { TStartupConfig } from 'librechat-data-provider';
 import type { ArtifactFiles } from '~/common';
+import ArtifactErrorBoundary from './ArtifactErrorBoundary';
 import { sharedFiles, sharedOptions } from '~/utils/artifacts';
 
 export const ArtifactPreview = memo(function ({
@@ -16,6 +17,7 @@ export const ArtifactPreview = memo(function ({
   previewRef,
   currentCode,
   startupConfig,
+  artifactId,
 }: {
   files: ArtifactFiles;
   fileKey: string;
@@ -24,7 +26,10 @@ export const ArtifactPreview = memo(function ({
   previewRef: MutableRefObject<SandpackPreviewRef>;
   currentCode?: string;
   startupConfig?: TStartupConfig;
+  artifactId?: string;
 }) {
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const artifactFiles = useMemo(() => {
     if (Object.keys(files).length === 0) {
       return files;
@@ -49,23 +54,30 @@ export const ArtifactPreview = memo(function ({
     };
   }, [startupConfig, template]);
 
+  const handleRetry = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   if (Object.keys(artifactFiles).length === 0) {
     return null;
   }
 
   return (
-    <SandpackProvider
-      files={{ ...artifactFiles, ...sharedFiles }}
-      options={options}
-      {...sharedProps}
-      template={template}
-    >
-      <SandpackPreview
-        showOpenInCodeSandbox={false}
-        showRefreshButton={false}
-        tabIndex={0}
-        ref={previewRef}
-      />
-    </SandpackProvider>
+    <ArtifactErrorBoundary artifactId={artifactId} onRetry={handleRetry}>
+      <SandpackProvider
+        key={refreshKey}
+        files={{ ...artifactFiles, ...sharedFiles }}
+        options={options}
+        {...sharedProps}
+        template={template}
+      >
+        <SandpackPreview
+          showOpenInCodeSandbox={false}
+          showRefreshButton={false}
+          tabIndex={0}
+          ref={previewRef}
+        />
+      </SandpackProvider>
+    </ArtifactErrorBoundary>
   );
 });

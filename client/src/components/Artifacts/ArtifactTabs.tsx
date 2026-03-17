@@ -56,6 +56,7 @@ export default function ArtifactTabs({
           sharedProps={sharedProps}
           currentCode={currentCode}
           startupConfig={startupConfig}
+          artifactId={artifact.id}
         />
       </Tabs.Content>
     </div>

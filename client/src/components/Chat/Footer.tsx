@@ -9,6 +9,10 @@ function Footer({ className }: { className?: string }) {
   const { data: config } = useGetStartupConfig();
   const localize = useLocalize();
 
+  if (config?.customFooter === '') {
+    return null;
+  }
+
   const privacyPolicy = config?.interface?.privacyPolicy;
   const termsOfService = config?.interface?.termsOfService;
 

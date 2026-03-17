@@ -62,7 +62,24 @@
 ✅ 读取截图中的文字
 ✅ 理解图片含义
 ```
+LibreChat 支持图片解析，但仅限于视觉能力模型（如 GPT-4o、Claude 3.x、Gemini、qwen-vl 等）。
 
+你当前遇到错误的原因：
+
+根本原因
+你使用的模型不支持视觉输入。"油田钻井" 对话使用的是 Qwen 端点（Qwen3-Thinking、Qwen2.5-72B-Instruct 等）或 DeepSeek（deepseek-chat、deepseek-coder）。这些都是纯文本模型，不在项目支持视觉的模型白名单中：
+
+config.ts:1272 中的 visionModels 列表只包含 qwen-vl（Qwen 视觉版），不包含你配置的 Qwen3-Thinking 等文本模型。
+
+"上传至提供商" 的行为：点击该选项后，LibreChat 将图片封装为 image_url 类型的内容块，直接发送给模型 API。但 http://cloud.tanheidc.cn:9998/v1 上的模型只接受 text 类型内容，于是 API 返回：
+
+为何按钮仍然出现：代码在 schemas.ts:49 中，EModelEndpoint.custom（自定义端点类型）被列入 documentSupportedProviders，所以所有自定义端点都会显示 "上传至提供商" 按钮，即使底层模型不支持视觉。
+
+解决方案
+方案	操作	效果
+✅ 推荐	选 "作为文本上传"	OCR 提取图片中的文字，发送给模型（文本模型可用）
+✅ 推荐	选 "上传搜索文件"	向量化索引，RAG 检索（文本模型可用）
+⚠️ 需换模型	使用支持视觉的模型	需换成支持 image_url 的 API（如 GPT-4o / Claude 3 等）
 ---
 
 ### 1.2 📄 作为文本上传（Upload OCR Text / Context）
