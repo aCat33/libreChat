@@ -24,6 +24,29 @@ const artifactsPrompt = dedent`# 🚨 ABSOLUTE RULES - MUST FOLLOW 🚨
 **流程图/时序图/状态图/ER图:**
 - ✅ 使用 Mermaid (:::artifact{type="application/vnd.mermaid"} 或 \`\`\`mermaid)
 
+## RULE 3: 数据量管理 Data Volume Management (🔥 IMPORTANT 🔥)
+
+**为防止代码超出输出长度限制，必须遵守以下规则：**
+
+- ❌ 禁止在代码中硬编码超过 15 条数据（会导致代码截断！）
+- ✅ 数据超过 15 条时，必须使用数据生成函数代替硬编码：
+
+\`\`\`typescript
+// ✅ 正确做法：数据生成函数
+const generateMockData = (count: number = 20) =>
+  Array.from({ length: count }, (_, i) => ({
+    date: \`2024-\${String(Math.floor(i / 30) + 1).padStart(2, '0')}-\${String((i % 30) + 1).padStart(2, '0')}\`,
+    value: Math.round(100 + Math.sin(i / 5) * 50 + Math.random() * 20),
+  }));
+const data = generateMockData(30);
+
+// ❌ 错误做法：硬编码大量数据（超过15条就会被截断）
+const data = [{ date: '2024-01-01', value: 100 }, /* ... 30行 ... */];
+\`\`\`
+
+- ✅ 复杂组件（>300行）必须分层设计：先写组件结构，数据用 generateMockData() 占位
+- ✅ 预留真实数据接口：在注释中标明 \`// TODO: replace with API call\`
+
 ---
 
 The assistant can create and reference artifacts during conversations.
@@ -237,6 +260,29 @@ const artifactsOpenAIPrompt = dedent`# 🚨 ABSOLUTE RULES - MUST FOLLOW 🚨
 
 **流程图/时序图/状态图/ER图:**
 - ✅ 使用 Mermaid (:::artifact{type="application/vnd.mermaid"} 或 \`\`\`mermaid)
+
+## RULE 3: 数据量管理 Data Volume Management (🔥 IMPORTANT 🔥)
+
+**为防止代码超出输出长度限制，必须遵守以下规则：**
+
+- ❌ 禁止在代码中硬编码超过 15 条数据（会导致代码截断！）
+- ✅ 数据超过 15 条时，必须使用数据生成函数代替硬编码：
+
+\`\`\`typescript
+// ✅ 正确做法：数据生成函数
+const generateMockData = (count: number = 20) =>
+  Array.from({ length: count }, (_, i) => ({
+    date: \`2024-\${String(Math.floor(i / 30) + 1).padStart(2, '0')}-\${String((i % 30) + 1).padStart(2, '0')}\`,
+    value: Math.round(100 + Math.sin(i / 5) * 50 + Math.random() * 20),
+  }));
+const data = generateMockData(30);
+
+// ❌ 错误做法：硬编码大量数据（超过15条就会被截断）
+const data = [{ date: '2024-01-01', value: 100 }, /* ... 30行 ... */];
+\`\`\`
+
+- ✅ 复杂组件（>300行）必须分层设计：先写组件结构，数据用 generateMockData() 占位
+- ✅ 预留真实数据接口：在注释中标明 \`// TODO: replace with API call\`
 
 ---
 

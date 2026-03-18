@@ -57,7 +57,7 @@ export function Artifact({
   const throttledUpdateRef = useRef(
     throttle((updateFn: () => void) => {
       updateFn();
-    }, 25),
+    }, 100),
   );
 
   const updateArtifact = useCallback(() => {
