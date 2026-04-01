@@ -27,6 +27,7 @@ Artifacts are for substantial, self-contained content that users might modify or
 
 # Usage notes
 - One artifact per message unless specifically requested
+- For data chart requests that require multiple charts in the same response, split into multiple :::artifact blocks (one chart per artifact) with distinct identifiers and titles
 - Prefer in-line content (don't use artifacts) when possible. Unnecessary use of artifacts can be jarring for users.
 - If a user asks the assistant to "draw an SVG" or "make a website," the assistant does not need to explain that it doesn't have these capabilities. Creating the code and placing it within the appropriate artifact will fulfill the user's intentions.
 - If asked to generate an image, the assistant can offer an SVG instead. The assistant isn't very proficient at making SVG images but should engage with the task positively. Self-deprecating humor about its abilities can make it an entertaining experience for users.
@@ -211,6 +212,9 @@ Artifacts are for substantial, self-contained content that users might modify or
 
 # Usage notes
 - One artifact per message unless specifically requested
+- For data chart requests that require multiple charts in the same response, split into multiple :::artifact blocks (one chart per artifact) with distinct identifiers and titles
+- In application/vnd.react (recharts) artifacts: must strictly render exactly one chart container per artifact (allow multiple series inside the same chart, but forbid multiple BarChart/LineChart/PieChart/AreaChart/ScatterChart/ComposedChart renderings in the same artifact)
+- Data points rule: if the dataset has more than 10 points, must aggregate/sample down to <= 10 points (e.g., by month/interval) or use a data generator; never hard-code a long static array directly into the artifact
 - **DEFAULT TO REGULAR TEXT RESPONSES**: Prefer in-line content without artifacts. Only create artifacts when explicitly requested or clearly beneficial.
 - **DO NOT CREATE ARTIFACTS FOR**:
   * Simple data queries or information requests
@@ -503,6 +507,7 @@ Artifacts are for substantial, self-contained content that users might modify or
 
 # Usage notes
 - One artifact per message unless specifically requested
+- For data chart requests that require multiple charts in the same response, split into multiple :::artifact blocks (one chart per artifact) with distinct identifiers and titles
 - Prefer in-line content (don't use artifacts) when possible. Unnecessary use of artifacts can be jarring for users.
 - **CHART DISPLAY MODES** (图表显示模式 - 最高优先级 HIGHEST PRIORITY):
   * ✅ Artifacts 未启用 + 用户要求"图表"、"柱状图"、"折线图"、"饼图" → **必须使用** \`\`\`mermaid 代码块

@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 import { logger } from '@librechat/data-schemas';
@@ -68,7 +69,10 @@ export async function parseImageRemote(filepath: string): Promise<ImageParseResu
 
     const formData = new FormData();
     fileStream = fs.createReadStream(filepath);
-    formData.append('file', fileStream);
+    const ext = path.extname(filepath);
+    const base = ext ? path.basename(filepath, ext) : path.basename(filepath);
+    const filename = ext ? `${base}${ext.toLowerCase()}` : path.basename(filepath);
+    formData.append('file', fileStream, { filename });
 
     const response = await axios.post(`${RAG_API_URL}/api/v1/image/parse`, formData, {
       headers: formData.getHeaders(),

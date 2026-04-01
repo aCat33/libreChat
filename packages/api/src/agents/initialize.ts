@@ -129,6 +129,32 @@ export interface InitializeAgentDbMethods extends EndpointDbMethods {
 }
 
 /**
+ * Estimates the max output tokens required based on the complexity of the user's request.
+ * Returns null when no override is needed (use the config-level default).
+ * Only called when artifacts are enabled to avoid unnecessary token boosts for plain chat.
+ */
+function estimateRequiredTokens(text: string): number | null {
+  const ultraComplexPatterns = [
+    /仪表盘.*数据|数据.*仪表盘/,
+    /多.*图表.*数据|包含.*多.*图表/,
+    /dashboard.*data|data.*dashboard/i,
+    /comprehensive.*(?:chart|graph|dashboard)/i,
+  ];
+
+  const complexPatterns = [
+    /大量数据|大量.*图|批量数据|历史数据|实时数据|时序数据/,
+    /仪表盘|看板|dashboard/i,
+    /多个图表|多图|多.*图|several.*charts?/i,
+    /large\s+(?:dataset|data|amount)/i,
+    /包含.*数据.*图|包含.*图.*数据/,
+  ];
+
+  if (ultraComplexPatterns.some((p) => p.test(text))) return 14000;
+  if (complexPatterns.some((p) => p.test(text))) return 12000;
+  return null;
+}
+
+/**
  * Initializes an agent for use in requests.
  * Handles file processing, tool loading, provider configuration, and context token calculations.
  *
@@ -372,6 +398,17 @@ export async function initializeAgent(
     structuredTools?.length
   ) {
     tools = structuredTools.concat(options.tools as GenericTool[]);
+  }
+
+  if (typeof agent.artifacts === 'string' && agent.artifacts !== '') {
+    const userText = req.body.text ?? '';
+    const dynamicMaxTokens = estimateRequiredTokens(userText);
+    if (dynamicMaxTokens !== null) {
+      const currentMax = llmConfig.maxTokens as number | undefined;
+      if (currentMax == null || dynamicMaxTokens > currentMax) {
+        llmConfig.maxTokens = dynamicMaxTokens;
+      }
+    }
   }
 
   agent.model_parameters = { ...options.llmConfig } as Agent['model_parameters'];

@@ -11,9 +11,13 @@ const {
   isMCPInspectionFailedError,
   MCPErrorCodes,
 } = require('@librechat/api');
+const { Providers } = require('@librechat/agents');
 const { Constants, MCPServerUserInputSchema } = require('librechat-data-provider');
 const { cacheMCPServerTools, getMCPServerTools } = require('~/server/services/Config');
-const { getMCPManager, getMCPServersRegistry } = require('~/config');
+const { getMCPManager, getMCPServersRegistry, getFlowStateManager } = require('~/config');
+const { findToken, createToken, updateToken } = require('~/models');
+const { getLogStores } = require('~/cache');
+const { CacheKeys } = require('librechat-data-provider');
 
 /**
  * Handles MCP-specific errors and sends appropriate HTTP responses.
@@ -301,6 +305,57 @@ const deleteMCPServerController = async (req, res) => {
   }
 };
 
+/**
+ * Execute a named tool on an MCP server directly (without an LLM round-trip).
+ * Used by the "Save to Database" action when the user confirms extracted document data.
+ * @route POST /api/mcp/:serverName/execute
+ */
+const executeMCPTool = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user?.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { serverName } = req.params;
+    const { toolName, toolArguments } = req.body;
+
+    if (!toolName || typeof toolName !== 'string') {
+      return res.status(400).json({ error: 'toolName is required' });
+    }
+
+    const serverConfig = await getMCPServersRegistry().getServerConfig(serverName, user.id);
+    if (!serverConfig) {
+      return res.status(404).json({ error: `MCP server '${serverName}' not found` });
+    }
+
+    const flowsCache = getLogStores(CacheKeys.FLOWS);
+    const flowManager = getFlowStateManager(flowsCache);
+    const mcpManager = getMCPManager(user.id);
+
+    const result = await mcpManager.callTool({
+      user,
+      serverName,
+      toolName,
+      provider: Providers.openAI,
+      toolArguments: toolArguments ?? {},
+      flowManager,
+      tokenMethods: { findToken, createToken, updateToken },
+    });
+
+    const textContent = Array.isArray(result)
+      ? result.map((r) => (typeof r === 'string' ? r : r?.text ?? JSON.stringify(r))).join('\n')
+      : typeof result === 'string'
+        ? result
+        : JSON.stringify(result);
+
+    return res.status(200).json({ success: true, result: textContent });
+  } catch (error) {
+    logger.error(`[executeMCPTool] Error executing tool on '${req.params.serverName}':`, error);
+    return res.status(500).json({ error: error.message || 'Tool execution failed' });
+  }
+};
+
 module.exports = {
   getMCPTools,
   getMCPServersList,
@@ -308,4 +363,5 @@ module.exports = {
   getMCPServerById,
   updateMCPServerController,
   deleteMCPServerController,
+  executeMCPTool,
 };

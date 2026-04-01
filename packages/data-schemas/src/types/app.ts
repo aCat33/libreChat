@@ -45,6 +45,8 @@ export interface FunctionTool {
 export interface AppConfig {
   /** The main custom configuration */
   config: Partial<TCustomConfig>;
+  /** Custom footer markdown/text */
+  customFooter?: TCustomConfig['customFooter'];
   /** OCR configuration */
   ocr?: TCustomConfig['ocr'];
   /** File paths configuration */

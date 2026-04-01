@@ -131,8 +131,8 @@ export async function vectorSearch(
       }
     }
 
-    // Cache the results
-    if (config.enableCache) {
+    // Only cache non-empty results to avoid poisoning the cache before vectorization completes
+    if (config.enableCache && results.length > 0) {
       queryCache.set(cacheKey, results);
     }
 

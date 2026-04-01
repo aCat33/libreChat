@@ -7,7 +7,7 @@ import useScrollToRef from '~/hooks/useScrollToRef';
 import store from '~/store';
 
 const threshold = 0.85;
-const debounceRate = 150;
+const debounceRate = 200;
 
 export default function useMessageScrolling(messagesTree?: TMessage[] | null) {
   const autoScroll = useRecoilValue(store.autoScroll);

@@ -72,6 +72,7 @@ export const AppService = async (params?: {
     ocr,
     paths,
     config,
+    customFooter: config.customFooter,
     memory,
     speech,
     balance,

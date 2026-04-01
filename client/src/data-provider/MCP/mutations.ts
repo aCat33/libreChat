@@ -2,6 +2,31 @@ import { useMutation, useQueryClient, UseMutationResult } from '@tanstack/react-
 import { dataService, QueryKeys, ResourceType } from 'librechat-data-provider';
 import type * as t from 'librechat-data-provider';
 
+export type MCPToolExecuteParams = {
+  serverName: string;
+  toolName: string;
+  toolArguments?: Record<string, unknown>;
+};
+
+export type MCPToolExecuteResult = { success: boolean; result: string };
+
+/**
+ * Hook for executing a named MCP tool directly (e.g. saving extracted document data to a database).
+ */
+export const useExecuteMCPTool = (options?: {
+  onSuccess?: (data: MCPToolExecuteResult, variables: MCPToolExecuteParams) => void;
+  onError?: (error: Error, variables: MCPToolExecuteParams) => void;
+}): UseMutationResult<MCPToolExecuteResult, Error, MCPToolExecuteParams> => {
+  return useMutation(
+    ({ serverName, toolName, toolArguments }: MCPToolExecuteParams) =>
+      dataService.executeMCPTool(serverName, { toolName, toolArguments }),
+    {
+      onSuccess: (data, variables) => options?.onSuccess?.(data, variables),
+      onError: (error, variables) => options?.onError?.(error, variables),
+    },
+  );
+};
+
 /**
  * Hook for creating a new MCP server
  */

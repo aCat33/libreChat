@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
 const { logger } = require('@librechat/data-schemas');
@@ -73,7 +74,14 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
     const jwtToken = generateShortLivedToken(req.user.id);
     const formData = new FormData();
     formData.append('file_id', file_id);
-    formData.append('file', fs.createReadStream(file.path));
+    const originalName = file.originalname || '';
+    const ext = path.extname(originalName);
+    const baseName = ext ? originalName.slice(0, -ext.length) : originalName;
+    const normalizedFilename = ext ? `${baseName}${ext.toLowerCase()}` : originalName;
+    formData.append('file', fs.createReadStream(file.path), {
+      filename: normalizedFilename,
+      contentType: file.mimetype,
+    });
     if (entity_id != null && entity_id) {
       formData.append('entity_id', entity_id);
     }

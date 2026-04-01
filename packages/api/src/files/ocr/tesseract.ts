@@ -1,11 +1,36 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 import type { Worker } from 'tesseract.js';
 import { logger } from '@librechat/data-schemas';
 
 const OCR_LANGUAGES = process.env.OCR_LANGUAGES || 'eng';
 const OCR_CONFIDENCE_THRESHOLD = parseInt(process.env.OCR_CONFIDENCE_THRESHOLD || '60', 10);
+const OCR_SCALE = parseFloat(process.env.OCR_SCALE || '2.0');
+
+/**
+ * Preprocess image for better OCR accuracy:
+ * - Upscale to improve text clarity
+ * - Convert to grayscale to reduce noise
+ * - Sharpen edges for cleaner character recognition
+ * Returns path to preprocessed temp file (caller must delete it).
+ */
+async function preprocessImage(imagePath: string): Promise<string> {
+  const ext = path.extname(imagePath);
+  const tmpPath = path.join(os.tmpdir(), `ocr_pre_${Date.now()}${ext || '.png'}`);
+  const meta = await sharp(imagePath).metadata();
+  const width = Math.round((meta.width ?? 800) * OCR_SCALE);
+
+  await sharp(imagePath)
+    .resize(width)
+    .grayscale()
+    .sharpen()
+    .toFile(tmpPath);
+
+  return tmpPath;
+}
 
 /**
  * OCR result interface
@@ -44,10 +69,13 @@ async function getWorker(): Promise<Worker> {
  * @returns OCR result with text and confidence
  */
 export async function recognizeImage(imagePath: string): Promise<OCRResult> {
+  let preprocessedPath: string | null = null;
   try {
     if (!fs.existsSync(imagePath)) {
       throw new Error(`Image file not found: ${imagePath}`);
     }
+
+    preprocessedPath = await preprocessImage(imagePath);
 
     const worker = await getWorker();
     const startTime = Date.now();
@@ -56,7 +84,7 @@ export async function recognizeImage(imagePath: string): Promise<OCRResult> {
 
     const {
       data: { text, confidence },
-    } = await worker.recognize(imagePath);
+    } = await worker.recognize(preprocessedPath);
 
     const duration = Date.now() - startTime;
     logger.info(
@@ -76,6 +104,10 @@ export async function recognizeImage(imagePath: string): Promise<OCRResult> {
       language: OCR_LANGUAGES,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  } finally {
+    if (preprocessedPath) {
+      fs.unlink(preprocessedPath, () => undefined);
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useRef } from 'react';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import supersub from 'remark-supersub';
@@ -30,12 +30,23 @@ type TContentProps = {
 const Markdown = memo(function Markdown({ content = '', isLatestMessage }: TContentProps) {
   const LaTeXParsing = useRecoilValue<boolean>(store.LaTeXParsing);
   const isInitializing = content === '';
+  const prevContentRef = useRef<string>('');
+  const processedContentCache = useRef<string>('');
 
   const currentContent = useMemo(() => {
     if (isInitializing) {
       return '';
     }
-    return LaTeXParsing ? preprocessLaTeX(content) : content;
+    
+    // Cache processed content to avoid reprocessing on every render
+    if (prevContentRef.current === content && processedContentCache.current) {
+      return processedContentCache.current;
+    }
+    
+    prevContentRef.current = content;
+    const processed = LaTeXParsing ? preprocessLaTeX(content) : content;
+    processedContentCache.current = processed;
+    return processed;
   }, [content, LaTeXParsing, isInitializing]);
 
   const rehypePlugins = useMemo(

@@ -8,6 +8,18 @@ import useArtifactProps from '~/hooks/Artifacts/useArtifactProps';
 import { ArtifactCodeEditor } from './ArtifactCodeEditor';
 import { useGetStartupConfig } from '~/data-provider';
 import { ArtifactPreview } from './ArtifactPreview';
+import OilDataViewer from './OilDataViewer';
+
+const OIL_TYPES = new Set([
+  'application/vnd.oil-data',
+  'application/vnd.oil-drilling-daily',
+  'application/vnd.oil-pre-daily',
+  'application/vnd.oil-key-well',
+  'application/vnd.oil-analysis',
+  'application/vnd.oil-workover',
+  'application/vnd.oil-perforation',
+  'application/vnd.oil-diagram',
+]);
 
 export default function ArtifactTabs({
   artifact,
@@ -48,15 +60,20 @@ export default function ArtifactTabs({
         className="h-full w-full flex-grow overflow-hidden"
         tabIndex={-1}
       >
-        <ArtifactPreview
-          files={files}
-          fileKey={fileKey}
-          template={template}
-          previewRef={previewRef}
-          sharedProps={sharedProps}
-          currentCode={currentCode}
-          startupConfig={startupConfig}
-        />
+        {OIL_TYPES.has(artifact.type ?? '') ? (
+          <OilDataViewer artifact={artifact} />
+        ) : (
+          <ArtifactPreview
+            files={files}
+            fileKey={fileKey}
+            template={template}
+            previewRef={previewRef}
+            sharedProps={sharedProps}
+            currentCode={currentCode}
+            startupConfig={startupConfig}
+            artifactId={artifact.id}
+          />
+        )}
       </Tabs.Content>
     </div>
   );

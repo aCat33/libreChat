@@ -141,6 +141,10 @@ router.get('/', async function (req, res) {
       payload.ldap = ldap;
     }
 
+    if (typeof appConfig?.customFooter === 'string') {
+      payload.customFooter = appConfig.customFooter;
+    }
+
     if (typeof process.env.CUSTOM_FOOTER === 'string') {
       payload.customFooter = process.env.CUSTOM_FOOTER;
     }
