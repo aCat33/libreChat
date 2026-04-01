@@ -173,8 +173,10 @@ export const ANALYSIS_LABELS: Record<string, string> = {
   na_k_ion: '钠钾离子Na⁺+K⁺(mg/L)',
   oh_ion: '氢氧根OH⁻(mg/L)',
   mineralization: '矿化度(mg/L)',
-  total_hardness: '总硬度(mg/L)',
-  total_alkalinity: '总碱度(mg/L)',
+  total_hardness: '总硬度以CaCO₃计(mg/L)',
+  total_alkalinity: '总碱度以CaCO₃计(mg/L)',
+  water_type: '水型',
+  density: '密度20°C(g/cm³)',
   // 其他
   hyj: '化验机构',
   bz: '备注',
@@ -197,6 +199,7 @@ export const ANALYSIS_FIELD_GROUP: Record<string, string> = {
   hco3_ion: '水样离子', co3_ion: '水样离子', ca_ion: '水样离子',
   mg_ion: '水样离子', na_k_ion: '水样离子', oh_ion: '水样离子',
   mineralization: '水样离子', total_hardness: '水样离子', total_alkalinity: '水样离子',
+  water_type: '水样离子', density: '水样离子',
   hyj: '其他', bz: '其他',
 };
 

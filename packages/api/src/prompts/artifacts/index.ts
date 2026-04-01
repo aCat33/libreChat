@@ -107,10 +107,13 @@ The assistant creates artifacts for substantial, self-contained content (>15 lin
     standard_density (标准密度 kg/m³ numeric), relative_density (相对密度 numeric),
     high_calorific_value (高位发热量 kJ/m³ numeric), low_calorific_value (低位发热量 kJ/m³ numeric),
     compressibility_factor (压缩因子 numeric)
-  - Water sample fields (mg/L): ph (pH值 numeric), tds (总溶解固体 numeric),
-    cl_ion (氯离子), so4_ion (硫酸根), hco3_ion (碳酸氢根), co3_ion (碳酸根),
-    ca_ion (钙离子), mg_ion (镁离子), na_k_ion (钠钾离子),
-    oh_ion (氢氧根), mineralization (矿化度), total_hardness (总硬度), total_alkalinity (总碱度) — all numeric
+  - Water sample fields (mg/L): ph (pH值 numeric), cl_ion (氯离子), so4_ion (硫酸根离子),
+    hco3_ion (碳酸氢根), co3_ion (碳酸根), ca_ion (钙离子), mg_ion (镁离子),
+    na_k_ion (钾+钠离子), oh_ion (氢氧根), mineralization (矿化度),
+    total_hardness (总硬度以CaCO3计 numeric), total_alkalinity (总碱度以CaCO3计 numeric),
+    water_type (水型 string e.g. 重碳酸钠), density (密度20°C g/cm³ numeric)
+  - "未检出" means not detected; omit that field (do not set to 0)
+  - If document uses multi-column table (each column = one well sample), output one JSON object per column
   - If document contains multiple records, output a JSON array of objects
   - Content is raw JSON only, no code fences
 
@@ -267,10 +270,13 @@ Analysis-data rules (application/vnd.oil-analysis):
   standard_density (标准密度 kg/m³ numeric), relative_density (相对密度 numeric),
   high_calorific_value (高位发热量 kJ/m³ numeric), low_calorific_value (低位发热量 kJ/m³ numeric),
   compressibility_factor (压缩因子 numeric)
-- Water sample fields (mg/L): ph (pH值 numeric), tds (总溶解固体 numeric),
-  cl_ion (氯离子), so4_ion (硫酸根), hco3_ion (碳酸氢根), co3_ion (碳酸根),
-  ca_ion (钙离子), mg_ion (镁离子), na_k_ion (钠钾离子),
-  oh_ion (氢氧根), mineralization (矿化度), total_hardness (总硬度), total_alkalinity (总碱度) — all numeric
+- Water sample fields (mg/L): ph (pH值 numeric), cl_ion (氯离子), so4_ion (硫酸根离子),
+  hco3_ion (碳酸氢根), co3_ion (碳酸根), ca_ion (钙离子), mg_ion (镁离子),
+  na_k_ion (钾+钠离子), oh_ion (氢氧根), mineralization (矿化度),
+  total_hardness (总硬度以CaCO3计 numeric), total_alkalinity (总碱度以CaCO3计 numeric),
+  water_type (水型 string e.g. 重碳酸钠), density (密度20°C g/cm³ numeric)
+- "未检出" means not detected; omit that field (do not set to 0)
+- If document uses multi-column table (each column = one well sample), output one JSON object per column
 - If document contains multiple records, output a JSON array of objects
 - Content is raw JSON only, no code fences
 
