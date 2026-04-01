@@ -142,8 +142,10 @@ export function getProps(type: string): Partial<SandpackProviderProps> {
   };
 }
 
+const tailwindURL = import.meta.env.VITE_TAILWIND_CDN_URL ?? 'https://cdn.tailwindcss.com/3.4.17';
+
 export const sharedOptions: SandpackProviderProps['options'] = {
-  externalResources: ['https://cdn.tailwindcss.com/3.4.17'],
+  externalResources: [tailwindURL],
 };
 
 export const sharedFiles = {
@@ -192,7 +194,7 @@ export const sharedFiles = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Document</title>
-        <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+        <script src="${tailwindURL}"></script>
       </head>
       <body>
         <div id="root"></div>

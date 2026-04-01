@@ -82,8 +82,8 @@ function installDeps(hash) {
   console.purple('Cleaning npm cache...');
   exec('npm cache clean --force');
 
-  console.purple('Installing dependencies (npm ci)...');
-  exec('npm ci');
+  console.purple('Installing dependencies (npm install)...');
+  exec('npm install --legacy-peer-deps');
 
   fs.writeFileSync(DEPS_HASH_MARKER, hash, 'utf-8');
 }
