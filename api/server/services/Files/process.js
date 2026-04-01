@@ -20,7 +20,7 @@ const {
 } = require('librechat-data-provider');
 const { EnvVar } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
-const { sanitizeFilename, parseText, processAudioFile, parseImage } = require('@librechat/api');
+const { sanitizeFilename, parseText, processAudioFile, parseImage, maybeVectorizeDocument } = require('@librechat/api');
 const {
   convertImage,
   resizeAndConvert,
@@ -628,6 +628,12 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
       const ocrResult = await resolveDocumentText();
       if (ocrResult) {
         const { text, bytes, filepath: ocrFileURL } = ocrResult;
+        const userId = req.user?.id;
+        if (userId) {
+          maybeVectorizeDocument({ text, file, file_id, userId }).catch((err) => {
+            logger.error(`[processAgentFileUpload] Vectorization failed for "${file.originalname}": ${err.message}`);
+          });
+        }
         return await createTextFile({ text, bytes, filepath: ocrFileURL });
       }
       throw new Error(

@@ -621,6 +621,16 @@ export const deleteMCPServer = async (serverName: string): Promise<{ success: bo
 };
 
 /**
+ * Execute a named tool on a given MCP server directly (e.g. to save extracted document data).
+ */
+export const executeMCPTool = async (
+  serverName: string,
+  body: { toolName: string; toolArguments?: Record<string, unknown> },
+): Promise<{ success: boolean; result: string }> => {
+  return request.post(endpoints.mcpExecute(serverName), body);
+};
+
+/**
  * Imports a conversations file.
  *
  * @param data - The FormData containing the file to import.

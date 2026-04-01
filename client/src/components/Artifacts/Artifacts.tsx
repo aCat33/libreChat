@@ -1,18 +1,46 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Code, Play, RefreshCw, X } from 'lucide-react';
+import { Code, Play, RefreshCw, X, Save } from 'lucide-react';
 import { useSetRecoilState, useResetRecoilState } from 'recoil';
-import { Button, Spinner, useMediaQuery, Radio } from '@librechat/client';
+import { Button, Spinner, useMediaQuery, Radio, useToastContext } from '@librechat/client';
 import type { SandpackPreviewRef } from '@codesandbox/sandpack-react';
 import { useShareContext, useMutationState } from '~/Providers';
+import { useExecuteMCPTool } from '~/data-provider/MCP';
 import useArtifacts from '~/hooks/Artifacts/useArtifacts';
 import DownloadArtifact from './DownloadArtifact';
 import ArtifactVersion from './ArtifactVersion';
 import ArtifactTabs from './ArtifactTabs';
 import { CopyCodeButton } from './Code';
+import { flattenOilDataForSave } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
+
+const OIL_SAVE_CONFIG: Record<string, { server: string; tool: string }> = {
+  'application/vnd.oil-data': { server: 'oilfield-wells', tool: 'save_well_data' },
+  'application/vnd.oil-drilling-daily': {
+    server: 'oilfield-dailyreports',
+    tool: 'save_drilling_daily',
+  },
+  'application/vnd.oil-pre-daily': {
+    server: 'oilfield-dailyreports',
+    tool: 'save_drilling_pre_daily',
+  },
+  'application/vnd.oil-key-well': {
+    server: 'oilfield-dailyreports',
+    tool: 'save_key_well_daily',
+  },
+  'application/vnd.oil-analysis': { server: 'oilfield-operations', tool: 'save_well_analysis' },
+  'application/vnd.oil-workover': { server: 'oilfield-operations', tool: 'save_workover_record' },
+  'application/vnd.oil-perforation': {
+    server: 'oilfield-operations',
+    tool: 'save_perforation_record',
+  },
+  'application/vnd.oil-diagram': {
+    server: 'oilfield-operations',
+    tool: 'save_wellbore_diagram',
+  },
+};
 
 const MAX_BLUR_AMOUNT = 32;
 const MAX_BACKDROP_OPACITY = 0.3;
@@ -77,6 +105,8 @@ export default function Artifacts() {
     }
   }, [height, isMobile]);
 
+  const { showToast } = useToastContext();
+
   const {
     activeTab,
     setActiveTab,
@@ -85,6 +115,60 @@ export default function Artifacts() {
     orderedArtifactIds,
     setCurrentArtifactId,
   } = useArtifacts();
+
+  const isOilData = currentArtifact?.type != null && currentArtifact.type in OIL_SAVE_CONFIG;
+
+  const { mutate: executeOilSave, isLoading: isSaving } = useExecuteMCPTool({
+    onSuccess: (data) => {
+      showToast({
+        message: data.result || localize('com_ui_save_to_database_success'),
+        status: 'success',
+      });
+    },
+    onError: (error) => {
+      showToast({
+        message: error.message || localize('com_ui_save_to_database_error'),
+        status: 'error',
+      });
+    },
+  });
+
+  const handleSaveToDatabase = useCallback(() => {
+    if (!currentArtifact?.content || !currentArtifact.type) {
+      return;
+    }
+    const saveConfig = OIL_SAVE_CONFIG[currentArtifact.type];
+    if (!saveConfig) {
+      return;
+    }
+    try {
+      const trimmed = currentArtifact.content.trim();
+      const jsonStr = trimmed.startsWith('```')
+        ? trimmed.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '')
+        : trimmed;
+      const raw = JSON.parse(jsonStr) as unknown;
+      if (raw === null || typeof raw !== 'object') {
+        showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
+        return;
+      }
+      const records: Array<Record<string, unknown>> = Array.isArray(raw)
+        ? (raw as unknown[]).filter(
+            (item): item is Record<string, unknown> =>
+              item !== null && typeof item === 'object' && !Array.isArray(item),
+          )
+        : [raw as Record<string, unknown>];
+      for (const record of records) {
+        executeOilSave({
+          serverName: saveConfig.server,
+          toolName: saveConfig.tool,
+          toolArguments: flattenOilDataForSave(record),
+        });
+      }
+    } catch {
+      showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
+      return;
+    }
+  }, [currentArtifact, executeOilSave, localize, showToast]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -281,6 +365,25 @@ export default function Artifacts() {
               )}
               <CopyCodeButton content={currentArtifact.content ?? ''} />
               <DownloadArtifact artifact={currentArtifact} />
+              {isOilData && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleSaveToDatabase}
+                  disabled={isSaving}
+                  aria-label={localize('com_ui_save_to_database')}
+                  className="flex items-center gap-1.5 text-xs"
+                >
+                  {isSaving ? (
+                    <Spinner size={14} />
+                  ) : (
+                    <Save size={14} aria-hidden="true" />
+                  )}
+                  {isSaving
+                    ? localize('com_ui_saving')
+                    : localize('com_ui_save_to_database')}
+                </Button>
+              )}
               <Button
                 size="icon"
                 variant="ghost"

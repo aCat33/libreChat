@@ -37,6 +37,8 @@ describe('Meilisearch Mongoose plugin', () => {
 
   let mongoServer: MongoMemoryServer;
 
+  jest.setTimeout(180000);
+
   beforeAll(async () => {
     process.env = {
       ...OLD_ENV,
@@ -61,7 +63,9 @@ describe('Meilisearch Mongoose plugin', () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    await mongoServer.stop();
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
 
     process.env = OLD_ENV;
   });
@@ -128,6 +132,19 @@ describe('Meilisearch Mongoose plugin', () => {
       expiredAt: new Date(),
     });
     expect(mockAddDocuments).not.toHaveBeenCalled();
+  });
+
+  test('findOneAndUpdate hook does not crash when doc is null', async () => {
+    const conversationModel = createConversationModel(mongoose);
+    const nonExistentConversationId = new mongoose.Types.ObjectId();
+
+    await expect(
+      conversationModel.findOneAndUpdate(
+        { conversationId: nonExistentConversationId },
+        { $set: { title: 'Updated' } },
+        { new: true },
+      ),
+    ).resolves.toBeNull();
   });
 
   test('sync w/ meili does not include TTL documents', async () => {

@@ -28,6 +28,7 @@ const {
   getMCPServersList,
   getMCPServerById,
   getMCPTools,
+  executeMCPTool,
 } = require('~/server/controllers/mcp');
 const {
   getOAuthReconnectionManager,
@@ -56,6 +57,12 @@ const OAUTH_CSRF_COOKIE_PATH = '/api/mcp';
 router.get('/tools', requireJwtAuth, async (req, res) => {
   return getMCPTools(req, res);
 });
+
+/**
+ * Execute a named MCP tool directly (e.g. to save extracted document data to a database).
+ * @route POST /api/mcp/:serverName/execute
+ */
+router.post('/:serverName/execute', requireJwtAuth, executeMCPTool);
 
 /**
  * Initiate OAuth flow

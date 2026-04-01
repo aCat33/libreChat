@@ -103,6 +103,13 @@ export const ArtifactPreview = memo(function ({
         const selfClosingTags = (code.match(/<[A-Z][a-zA-Z0-9]*[^>]*\/>/g) ?? []).length;
         const tagsValid = Math.abs(openTags - closeTags - selfClosingTags) <= 1;
 
+        const divOpen = (code.match(/<div[^>]*>/g) ?? []).length;
+        const divClose = (code.match(/<\/div>/g) ?? []).length;
+        const pOpen = (code.match(/<p[^>]*>/g) ?? []).length;
+        const pClose = (code.match(/<\/p>/g) ?? []).length;
+        const htmlTagsValid =
+          Math.abs(divOpen - divClose) <= 1 && Math.abs(pOpen - pClose) <= 1;
+
         const trimmed = code.trim();
         const incompletePatterns = [
           /import\s+.*from\s+['"]$/,
@@ -116,7 +123,19 @@ export const ArtifactPreview = memo(function ({
         ];
         const notAbrupt = !incompletePatterns.some((p) => p.test(trimmed));
 
-        return hasImport && hasExport && quotesValid && bracketsValid && tagsValid && notAbrupt;
+        // Complete TSX files always end with }, ), ;, or > — never with bare text or stray quotes
+        const endsProperlyForTSX = /[}\)>;]\s*$/.test(trimmed);
+
+        return (
+          hasImport &&
+          hasExport &&
+          quotesValid &&
+          bracketsValid &&
+          tagsValid &&
+          htmlTagsValid &&
+          notAbrupt &&
+          endsProperlyForTSX
+        );
       }
 
       if (fileKey.endsWith('.html')) {

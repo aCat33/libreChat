@@ -699,8 +699,14 @@ export default function mongoMeili(schema: Schema, options: MongoMeiliOptions): 
   });
 
   // Post-findOneAndUpdate hook
-  schema.post('findOneAndUpdate', async function (doc: DocumentWithMeiliIndex, next) {
+  schema.post('findOneAndUpdate', async function (doc: DocumentWithMeiliIndex | null, next) {
     if (!meiliEnabled) {
+      return next();
+    }
+
+    // Mongoose passes `doc = null` when `findOneAndUpdate` doesn't match any document.
+    // Avoid accessing `doc.unfinished` in that case (it breaks generation flows).
+    if (!doc) {
       return next();
     }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import throttle from 'lodash/throttle';
 import { visit } from 'unist-util-visit';
 import { useSetRecoilState } from 'recoil';
@@ -39,6 +39,118 @@ const defaultTitle = 'untitled';
 const defaultType = 'unknown';
 const defaultIdentifier = 'lc-no-identifier';
 
+type SplitArtifactPart = {
+  identifier: string;
+  title: string;
+  content: string;
+};
+
+const RECHARTS_CHART_TAGS = [
+  'BarChart',
+  'LineChart',
+  'PieChart',
+  'AreaChart',
+  'ScatterChart',
+  'ComposedChart',
+] as const;
+
+function countRechartsCharts(code: string): number {
+  const matches = code.match(
+    new RegExp(`<\\s*(?:${RECHARTS_CHART_TAGS.join('|')})\\b`, 'g'),
+  );
+  return matches?.length ?? 0;
+}
+
+function splitRechartsTabsArtifact(params: {
+  code: string;
+  identifier: string;
+  title: string;
+}): SplitArtifactPart[] | null {
+  const { code, identifier, title } = params;
+
+  const tabsContentRegex =
+    /<TabsContent\b[^>]*\bvalue=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/TabsContent>/g;
+
+  const contents: Array<{ value: string; inner: string }> = [];
+  for (const match of code.matchAll(tabsContentRegex)) {
+    const value = match[2];
+    const inner = match[3] ?? '';
+    if (!value) {
+      continue;
+    }
+    const hasChart = RECHARTS_CHART_TAGS.some((tag) => new RegExp(`<\\s*${tag}\\b`).test(inner));
+    if (!hasChart) {
+      continue;
+    }
+    contents.push({ value, inner });
+  }
+
+  if (contents.length <= 1) {
+    return null;
+  }
+
+  const tabsTriggerRegex =
+    /<TabsTrigger\b[^>]*\bvalue=(["'])([^"']+)\1[^>]*>[\s\S]*?<\/TabsTrigger>/g;
+
+  const allTriggers = Array.from(code.matchAll(tabsTriggerRegex)).map((m) => ({
+    value: m[2],
+    raw: m[0],
+  }));
+
+  const parts: SplitArtifactPart[] = contents.map((c, idx) => {
+    const keepValues = new Set([c.value]);
+
+    const nextCode = (() => {
+      let out = code;
+
+      // Remove other <TabsContent ...> blocks
+      out = out.replace(tabsContentRegex, (_m, _q, v, inner) => {
+        if (!keepValues.has(String(v))) {
+          return '';
+        }
+        return `<TabsContent value="${String(v)}">${String(inner)}</TabsContent>`;
+      });
+
+      // If triggers exist, remove non-matching triggers to keep UI consistent
+      if (allTriggers.length > 0) {
+        out = out.replace(tabsTriggerRegex, (raw, _q, v) => {
+          return keepValues.has(String(v)) ? raw : '';
+        });
+      }
+
+      return out;
+    })();
+
+    return {
+      identifier: `${identifier}-part-${idx + 1}`,
+      title: `${title}（${c.value}）`,
+      content: nextCode,
+    };
+  });
+
+  return parts;
+}
+
+function splitReactArtifactIfNeeded(params: {
+  type: string;
+  code: string;
+  identifier: string;
+  title: string;
+}): SplitArtifactPart[] {
+  const { type, code, identifier, title } = params;
+  if (type !== 'application/vnd.react') {
+    return [{ identifier, title, content: code }];
+  }
+
+  if (countRechartsCharts(code) <= 1) {
+    return [{ identifier, title, content: code }];
+  }
+
+  return (
+    splitRechartsTabsArtifact({ code, identifier, title }) ?? [{ identifier, title, content: code }]
+  );
+}
+
 export function Artifact({
   node: _node,
   ...props
@@ -49,10 +161,10 @@ export function Artifact({
   const location = useLocation();
   const { messageId } = useMessageContext();
   const { getNextIndex, resetCounter } = useArtifactContext();
-  const artifactIndex = useRef(getNextIndex(false)).current;
 
   const setArtifacts = useSetRecoilState(artifactsState);
-  const [artifact, setArtifact] = useState<Artifact | null>(null);
+  const [artifactsForNode, setArtifactsForNode] = useState<Artifact[] | null>(null);
+  const indicesRef = useRef<number[]>([]);
 
   const throttledUpdateRef = useRef(
     throttle((updateFn: () => void) => {
@@ -67,46 +179,62 @@ export function Artifact({
     const title = props.title ?? defaultTitle;
     const type = props.type ?? defaultType;
     const identifier = props.identifier ?? defaultIdentifier;
-    const artifactKey = `${identifier}_${type}_${title}_${messageId}`
-      .replace(/\s+/g, '_')
-      .toLowerCase();
 
     throttledUpdateRef.current(() => {
       const now = Date.now();
-      if (artifactKey === `${defaultIdentifier}_${defaultType}_${defaultTitle}_${messageId}`) {
+      const splitParts = splitReactArtifactIfNeeded({ type, code: content, identifier, title });
+
+      while (indicesRef.current.length < splitParts.length) {
+        indicesRef.current.push(getNextIndex(false));
+      }
+
+      const nextArtifacts: Artifact[] = splitParts
+        .map((part, idx) => {
+          const partKey = `${part.identifier}_${type}_${part.title}_${messageId}`
+            .replace(/\s+/g, '_')
+            .toLowerCase();
+
+          if (partKey === `${defaultIdentifier}_${defaultType}_${defaultTitle}_${messageId}`) {
+            return null;
+          }
+
+          return {
+            id: partKey,
+            identifier: part.identifier,
+            title: part.title,
+            type,
+            content: part.content,
+            messageId,
+            index: indicesRef.current[idx] ?? 0,
+            lastUpdateTime: now,
+          } satisfies Artifact;
+        })
+        .filter((a): a is Artifact => a != null);
+
+      if (nextArtifacts.length === 0) {
         return;
       }
 
-      const currentArtifact: Artifact = {
-        id: artifactKey,
-        identifier,
-        title,
-        type,
-        content,
-        messageId,
-        index: artifactIndex,
-        lastUpdateTime: now,
-      };
-
       if (!isArtifactRoute(location.pathname)) {
-        return setArtifact(currentArtifact);
+        setArtifactsForNode(nextArtifacts);
+        return;
       }
 
       setArtifacts((prevArtifacts) => {
-        if (
-          prevArtifacts?.[artifactKey] != null &&
-          prevArtifacts[artifactKey]?.content === content
-        ) {
-          return prevArtifacts;
+        const prev = prevArtifacts ?? {};
+        const nextMap = { ...prev };
+
+        for (const art of nextArtifacts) {
+          if (prev[art.id]?.content === art.content) {
+            continue;
+          }
+          nextMap[art.id] = art;
         }
 
-        return {
-          ...prevArtifacts,
-          [artifactKey]: currentArtifact,
-        };
+        return nextMap;
       });
 
-      setArtifact(currentArtifact);
+      setArtifactsForNode(nextArtifacts);
     });
   }, [
     props.type,
@@ -115,8 +243,8 @@ export function Artifact({
     props.children,
     props.identifier,
     messageId,
-    artifactIndex,
     location.pathname,
+    getNextIndex,
   ]);
 
   useEffect(() => {
@@ -124,5 +252,17 @@ export function Artifact({
     updateArtifact();
   }, [updateArtifact, resetCounter]);
 
-  return <ArtifactButton artifact={artifact} />;
+  const renderedArtifacts = useMemo(() => artifactsForNode ?? [], [artifactsForNode]);
+
+  if (renderedArtifacts.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      {renderedArtifacts.map((a) => (
+        <ArtifactButton key={a.id} artifact={a} />
+      ))}
+    </>
+  );
 }

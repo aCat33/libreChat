@@ -1,16 +1,39 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { createReadStream } from 'fs';
+import path from 'path';
 import { logger } from '@librechat/data-schemas';
 import { FileSources } from 'librechat-data-provider';
 import type { ServerRequest } from '~/types';
 import { logAxiosError, readFileAsString } from '~/utils';
 import { countTokens } from '~/utils/tokenizer';
 import { generateShortLivedToken } from '~/crypto/jwt';
+import { parseImage } from './images';
 import {
   vectorizationStatusManager,
   VectorizationStatus,
 } from './vectorizationStatus';
+
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff', 'tif',
+]);
+
+function isImageFile(file: Express.Multer.File): boolean {
+  if (file.mimetype?.startsWith('image')) {
+    return true;
+  }
+  const ext = path.extname(file.originalname ?? '').toLowerCase().replace('.', '');
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
+function normalizeRagFilename(filename: string): string {
+  const ext = path.extname(filename);
+  if (!ext) {
+    return filename;
+  }
+  const base = path.basename(filename, ext);
+  return `${base}${ext.toLowerCase()}`;
+}
 
 /**
  * Attempts to parse text using RAG API, falls back to native text parsing
@@ -29,6 +52,26 @@ export async function parseText({
   file: Express.Multer.File;
   file_id: string;
 }): Promise<{ text: string; bytes: number; source: string }> {
+  if (isImageFile(file)) {
+    const userId = req.user?.id;
+    const imageResult = await parseImage(file.path);
+
+    if (userId) {
+      await maybeVectorizeDocument({
+        text: imageResult.text,
+        file,
+        file_id,
+        userId,
+      });
+    }
+
+    return {
+      text: imageResult.text,
+      bytes: Buffer.byteLength(imageResult.text, 'utf8'),
+      source: FileSources.text,
+    };
+  }
+
   if (!process.env.RAG_API_URL) {
     logger.debug('[parseText] RAG_API_URL not defined, falling back to native text parsing');
     return parseTextNative(file);
@@ -64,7 +107,11 @@ export async function parseText({
     
     // Create file stream and keep reference for cleanup
     fileStream = createReadStream(file.path);
-    formData.append('file', fileStream);
+    const normalizedFilename = normalizeRagFilename(file.originalname);
+    formData.append('file', fileStream, {
+      filename: normalizedFilename,
+      contentType: file.mimetype,
+    });
 
     const formHeaders = formData.getHeaders();
 
@@ -84,25 +131,7 @@ export async function parseText({
       throw new Error('RAG API did not return parsed text');
     }
 
-    // 🔥 只向量化大文档（避免资源浪费）
-    const RAG_VECTOR_THRESHOLD = parseInt(process.env.RAG_VECTOR_THRESHOLD || '5000', 10);
-    // 使用真正的 tiktoken 精确计算（与 extractFileContext 保持一致）
-    const actualTokens = await countTokens(responseData.text);
-    const fileSizeKB = (file.size / 1024).toFixed(2);
-    const strategy = actualTokens >= RAG_VECTOR_THRESHOLD ? '向量检索' : '全文注入';
-    
-    if (actualTokens >= RAG_VECTOR_THRESHOLD) {
-      logger.info(
-        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy} | 状态: 开始向量化`,
-      );
-      vectorizeDocumentAsync(file, file_id, userId, actualTokens, fileSizeKB).catch((err) => {
-        logger.error(`❌ [向量化失败] ${file.originalname} - ${err.message}`);
-      });
-    } else {
-      logger.info(
-        `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy}`,
-      );
-    }
+    await maybeVectorizeDocument({ text: responseData.text, file, file_id, userId });
 
     return {
       text: responseData.text,
@@ -191,9 +220,45 @@ export async function parseTextNative(file: Express.Multer.File): Promise<{
 }
 
 /**
+ * Check token count and trigger async vectorization if document is large enough.
+ * Safe to call from any text-extraction path (parseText, document_parser, OCR, etc.)
+ * Non-blocking — errors are caught and logged internally.
+ */
+export async function maybeVectorizeDocument({
+  text,
+  file,
+  file_id,
+  userId,
+}: {
+  text: string;
+  file: Express.Multer.File;
+  file_id: string;
+  userId: string;
+}): Promise<void> {
+  if (!process.env.RAG_API_URL) {
+    return;
+  }
+
+  const RAG_VECTOR_THRESHOLD = parseInt(process.env.RAG_VECTOR_THRESHOLD || '5000', 10);
+  const actualTokens = await countTokens(text);
+  const fileSizeKB = (file.size / 1024).toFixed(2);
+  const strategy = actualTokens >= RAG_VECTOR_THRESHOLD ? '向量检索' : '全文注入';
+
+  logger.info(
+    `📝 [文档上传] ${file.originalname} | 大小: ${fileSizeKB}KB | Tokens: ${actualTokens} | 策略: ${strategy}${actualTokens >= RAG_VECTOR_THRESHOLD ? ' | 状态: 开始向量化' : ''}`,
+  );
+
+  if (actualTokens >= RAG_VECTOR_THRESHOLD) {
+    vectorizeDocumentAsync(file, file_id, userId, actualTokens, fileSizeKB).catch((err) => {
+      logger.error(`❌ [向量化失败] ${file.originalname} - ${err.message}`);
+    });
+  }
+}
+
+/**
  * Asynchronously vectorize document in RAG API (non-blocking)
  * Called after text extraction to enable vector search
- * 
+ *
  * @param file - The uploaded file
  * @param file_id - The file ID
  * @param userId - User ID for authentication
@@ -227,7 +292,7 @@ async function vectorizeDocumentAsync(
     // Create new file stream for vectorization
     const fileStream = createReadStream(file.path);
     formData.append('file', fileStream, {
-      filename: file.originalname,
+      filename: normalizeRagFilename(file.originalname),
       contentType: file.mimetype,
     });
 
