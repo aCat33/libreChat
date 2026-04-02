@@ -29,7 +29,7 @@ const NODE_POLYFILL_SHIMS: Record<string, string> = {
 };
 
 // https://vitejs.dev/config/
-const backendPort = 3099;
+const backendPort = 3080;
 const backendURL = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig(({ command }) => ({

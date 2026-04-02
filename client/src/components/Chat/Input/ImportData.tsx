@@ -13,31 +13,59 @@ interface ImportType {
   prompt: string;
 }
 
+const ARTIFACT_FORMAT_HINT =
+  '必须使用以下格式输出，不要有其他文字：\n:::artifact{identifier="oil-data-import" type="TYPE_PLACEHOLDER" title="TITLE_PLACEHOLDER"}\n```json\n[...数据数组...]\n```\n:::';
+
 const IMPORT_TYPES: ImportType[] = [
   {
     id: 'gas',
     labelKey: 'com_ui_import_gas_analysis',
-    prompt: '从上传文档提取气样化验数据，以 application/vnd.oil-analysis artifact 输出，yplx 为"气样"。',
+    prompt:
+      '从上传文档提取气样化验数据，yplx 字段填写"气样"。' +
+      ARTIFACT_FORMAT_HINT.replace('TYPE_PLACEHOLDER', 'application/vnd.oil-analysis').replace(
+        'TITLE_PLACEHOLDER',
+        '气样化验数据',
+      ),
   },
   {
     id: 'water',
     labelKey: 'com_ui_import_water_analysis',
-    prompt: '从上传文档提取水样化验数据，以 application/vnd.oil-analysis artifact 输出，yplx 为"水样"。',
+    prompt:
+      '从上传文档提取水样化验数据，yplx 字段填写"水样"。' +
+      ARTIFACT_FORMAT_HINT.replace('TYPE_PLACEHOLDER', 'application/vnd.oil-analysis').replace(
+        'TITLE_PLACEHOLDER',
+        '水样化验数据',
+      ),
   },
   {
     id: 'workover',
     labelKey: 'com_ui_import_workover',
-    prompt: '从上传文档提取修井记录，以 application/vnd.oil-workover artifact 输出。',
+    prompt:
+      '从上传文档提取修井记录。' +
+      ARTIFACT_FORMAT_HINT.replace('TYPE_PLACEHOLDER', 'application/vnd.oil-workover').replace(
+        'TITLE_PLACEHOLDER',
+        '修井记录',
+      ),
   },
   {
     id: 'perforation',
     labelKey: 'com_ui_import_perforation',
-    prompt: '从上传文档提取射孔记录，以 application/vnd.oil-perforation artifact 输出。',
+    prompt:
+      '从上传文档提取射孔记录。' +
+      ARTIFACT_FORMAT_HINT.replace('TYPE_PLACEHOLDER', 'application/vnd.oil-perforation').replace(
+        'TITLE_PLACEHOLDER',
+        '射孔记录',
+      ),
   },
   {
     id: 'diagram',
     labelKey: 'com_ui_import_wellbore_diagram',
-    prompt: '从上传文档提取井身结构信息，以 application/vnd.oil-diagram artifact 输出。',
+    prompt:
+      '从上传文档提取井身结构信息。' +
+      ARTIFACT_FORMAT_HINT.replace('TYPE_PLACEHOLDER', 'application/vnd.oil-diagram').replace(
+        'TITLE_PLACEHOLDER',
+        '井身结构',
+      ),
   },
 ];
 
