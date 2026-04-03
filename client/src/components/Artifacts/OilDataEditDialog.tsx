@@ -137,8 +137,8 @@ function EditableTable({
     renderedRows.push(
       <tr key={row.id} className="group border-b border-border-light/50 hover:bg-surface-secondary/30">
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
-          <span className="text-sm leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[11px] text-text-tertiary/70">
+          <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
+          <span className="mt-0.5 block font-mono text-[12px] text-text-tertiary/70">
             {row.fieldKey}
           </span>
         </td>
@@ -149,7 +149,7 @@ function EditableTable({
           {isEditing ? (
             <input
               ref={inputRef}
-              className="w-full rounded border border-blue-400 bg-surface-primary px-2 py-1 text-sm text-text-primary outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
+              className="w-full rounded border border-blue-400 bg-surface-primary px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitEdit}
@@ -157,7 +157,7 @@ function EditableTable({
             />
           ) : (
             <div className="flex items-center justify-between gap-1 rounded px-1 py-1 transition-colors group-hover:bg-surface-hover">
-              <span className="text-sm text-text-primary">
+              <span className="text-[15px] text-text-primary">
                 {row.valueText !== '' ? (
                   row.valueText
                 ) : (
@@ -176,10 +176,10 @@ function EditableTable({
     <table className="w-full border-collapse">
       <thead>
         <tr className="border-b border-border-medium bg-surface-secondary/60">
-          <th className="py-2 pl-5 text-left text-xs font-medium text-text-secondary">
+          <th className="py-2.5 pl-5 text-left text-sm font-semibold text-text-primary">
             {localize('com_ui_oil_field_label')}
           </th>
-          <th className="py-2 pl-3 pr-4 text-left text-xs font-medium text-text-secondary">
+          <th className="py-2.5 pl-3 pr-4 text-left text-sm font-semibold text-text-primary">
             {localize('com_ui_oil_field_value_click')}
           </th>
         </tr>
@@ -325,10 +325,11 @@ export default function OilDataEditDialog({
         </OGDialogHeader>
 
         {/* 记录导航 & 操作 */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-border-light px-4 py-2">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-border-light px-4 py-2.5">
           <div className="flex items-center gap-1">
             <button
               type="button"
+              title="上一条"
               disabled={current === 0}
               onClick={() => setCurrentIndex(current - 1)}
               className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"
@@ -338,6 +339,7 @@ export default function OilDataEditDialog({
             </button>
             <button
               type="button"
+              title="下一条"
               disabled={current >= total - 1}
               onClick={() => setCurrentIndex(current + 1)}
               className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"

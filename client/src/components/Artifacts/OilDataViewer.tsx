@@ -71,15 +71,15 @@ function RecordTable({ record, schema }: { record: OilRecord; schema: OilSchema 
         className="border-b border-border-light/50 transition-colors hover:bg-surface-secondary/30"
       >
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
-          <span className="text-sm leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[11px] text-text-tertiary/70">
+          <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
+          <span className="mt-0.5 block font-mono text-[12px] text-text-tertiary/70">
             {row.fieldKey}
           </span>
         </td>
         <td className="py-2 pl-2 pr-4 align-middle">
           {showBar ? (
             <div className="flex items-center gap-2">
-              <span className="w-12 shrink-0 text-right text-sm font-medium tabular-nums text-text-primary">
+              <span className="w-12 shrink-0 text-right text-[15px] font-medium tabular-nums text-text-primary">
                 {row.valueText}
               </span>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-tertiary">
@@ -90,7 +90,7 @@ function RecordTable({ record, schema }: { record: OilRecord; schema: OilSchema 
               </div>
             </div>
           ) : (
-            <span className="text-sm font-medium text-text-primary">
+            <span className="text-[15px] font-medium text-text-primary">
               {row.valueText !== '' ? (
                 row.valueText
               ) : (
