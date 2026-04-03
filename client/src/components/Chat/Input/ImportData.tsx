@@ -13,27 +13,28 @@ interface ImportType {
   prompt: string;
 }
 
-const ARTIFACT_FORMAT_HINT =
-  '必须使用以下格式输出，不要有其他文字：\n:::artifact{identifier="oil-data-import" type="TYPE_PLACEHOLDER" title="TITLE_PLACEHOLDER"}\n```json\n[...数据数组...]\n```\n:::';
-
 const IMPORT_TYPES: ImportType[] = [
   {
     id: 'gas',
     labelKey: 'com_ui_import_gas_analysis',
     prompt:
-      '从上传文档中提取气样化验数据，以 application/vnd.oil-analysis artifact 格式输出，yplx 固定为"气样"。\n' +
+      '从上传文档中提取气样化验数据，yplx 固定为"气样"。\n' +
       '必须提取的字段（如文档中存在）：\n' +
       '- 基本信息：jh（井号）、bgbh（报告编号）、ypbh（样品编号）、ypmc（样品名称，来自"样品名称"字段，不要推断）、qyrq（取样日期）、cyrq（采样/检测日期）、cw（层位）、qydd（取样地点）、qyr（取样人）\n' +
       '- 气体组分(mol%)：ch4(甲烷)、c2h6(乙烷)、c3h8(丙烷)、nc4h10(正丁烷)、ic4h10(异丁烷)、nc5h12(正戊烷)、ic5h12(异戊烷)、c6_plus(正己烷及C6+)、n2(氮气)、co2(二氧化碳)、co(一氧化碳)、h2s(硫化氢，注意单位可能是mg/m³)、o2(氧气)\n' +
       '- 气样物性：molecular_weight(计算分子量)、standard_density(真实密度 kg/m³)、relative_density(真实相对密度)、high_calorific_value(高位发热量 kJ/m³)、low_calorific_value(低位发热量 kJ/m³)、compressibility_factor(压缩因子)\n' +
       '- 文档格式注意：组分数据常以左右两列并排排列，需同时读取两列；氧气若无值则不填；备注若为"/"则不填\n' +
-      '- 多个样品时输出JSON数组，单个样品输出JSON对象；内容为纯JSON，不加代码块',
+      '- 多个样品时输出JSON数组，单个样品输出JSON对象\n' +
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="gas-analysis-import" type="application/vnd.oil-analysis" title="气样化验数据"}\n' +
+      '[JSON数据，直接写JSON，不加代码块围栏]\n' +
+      ':::',
   },
   {
     id: 'water',
     labelKey: 'com_ui_import_water_analysis',
     prompt:
-      '从上传文档中提取水样化验数据，以 application/vnd.oil-analysis artifact 格式输出，yplx 固定为"水样"。\n' +
+      '从上传文档中提取水样化验数据，yplx 固定为"水样"。\n' +
       '⚠️ 重要：只输出文档中明确存在的数据，绝对不能猜测、估算或编造任何数值。如果文档内容无法正确读取，请告知用户，不要生成数据。\n' +
       '表格格式说明：检测结果表为多列格式——第一列是"检测项目"，后续每列是一口井的数据。"样品名称"行的每列值就是该列对应的井号（jh），如MYHW1001、MYHW1002。每列独立提取为一条记录。\n' +
       '字段映射（按行名称对应列值）：\n' +
@@ -46,31 +47,46 @@ const IMPORT_TYPES: ImportType[] = [
       '- na_k_ion = "钾+钠离子"、mineralization = "矿化度"、water_type = "水型"（字符串）\n' +
       '- total_hardness = "总硬度"、total_alkalinity = "总碱度"、density = "密度(20°C)"(g/cm³)\n' +
       '- "未检出"→不填该字段；备注"/"→不填；所有数值字段为 numeric\n' +
-      '输出JSON数组（每口井一条对象）；内容为纯JSON，不加代码块',
+      '输出JSON数组（每口井一条对象）\n' +
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="water-analysis-import" type="application/vnd.oil-analysis" title="水样化验数据"}\n' +
+      '[JSON数据，直接写JSON，不加代码块围栏]\n' +
+      ':::',
   },
   {
     id: 'workover',
     labelKey: 'com_ui_import_workover',
     prompt:
-      '从上传文档中提取修井记录，以 application/vnd.oil-workover artifact 格式输出。\n' +
+      '从上传文档中提取修井记录。\n' +
       '提取字段：jh(井号)、kssj(作业开始日期)、jssj(作业结束日期)、azlx(作业类型)、azmd(作业目的)、sgnr(施工内容)、sgsd(作业深度m)、azjg(作业结果)、sgdw(施工单位)、bz(备注)\n' +
-      '多条记录时输出JSON数组；内容为纯JSON，不加代码块',
+      '多条记录时输出JSON数组\n' +
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="workover-import" type="application/vnd.oil-workover" title="修井记录"}\n' +
+      '[JSON数据，直接写JSON，不加代码块围栏]\n' +
+      ':::',
   },
   {
     id: 'perforation',
     labelKey: 'com_ui_import_perforation',
     prompt:
-      '从上传文档中提取射孔记录，以 application/vnd.oil-perforation artifact 格式输出。\n' +
+      '从上传文档中提取射孔记录。\n' +
       '提取字段：jh(井号)、sksj(射孔日期)、cw(层位)、sk_top(射孔顶深m)、sk_bot(射孔底深m)、skhs(射孔厚度m)、skqx(射孔枪型)、skmd(射孔密度孔/m)、kj(孔径mm)、skfs(射孔方式)、bz(备注)\n' +
-      '多条记录时输出JSON数组；内容为纯JSON，不加代码块',
+      '多条记录时输出JSON数组\n' +
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="perforation-import" type="application/vnd.oil-perforation" title="射孔记录"}\n' +
+      '[JSON数据，直接写JSON，不加代码块围栏]\n' +
+      ':::',
   },
   {
     id: 'diagram',
     labelKey: 'com_ui_import_wellbore_diagram',
     prompt:
-      '从上传文档中提取井身结构信息，以 application/vnd.oil-diagram artifact 格式输出。\n' +
+      '从上传文档中提取井身结构信息。\n' +
       '提取字段：jh(井号)、diagram_type(图件类型)、file_name(文件名)、ms(描述)\n' +
-      '内容为纯JSON，不加代码块',
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="diagram-import" type="application/vnd.oil-diagram" title="井身结构图"}\n' +
+      '[JSON数据，直接写JSON，不加代码块围栏]\n' +
+      ':::',
   },
 ];
 

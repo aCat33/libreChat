@@ -6,6 +6,8 @@ import type { OilSchema } from './oilDataUtils';
 
 type OilRecord = Record<string, unknown>;
 
+const GAS_COMP_GROUP = '气样组分';
+
 function parseOilData(content: string | undefined): OilRecord | OilRecord[] | null {
   if (!content) {
     return null;
@@ -31,9 +33,24 @@ function parseOilData(content: string | undefined): OilRecord | OilRecord[] | nu
   }
 }
 
-function RecordLabel(record: OilRecord): string {
-  const jh = record['jh'] ?? record['well_name'] ?? record['jh'];
+function recordLabel(record: OilRecord): string {
+  const jh = record['jh'] ?? record['well_name'];
   return typeof jh === 'string' && jh ? jh : '记录';
+}
+
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <tr>
+      <td colSpan={2} className="pb-1 pl-4 pr-4 pt-3">
+        <div className="flex items-center gap-2">
+          <div className="h-3.5 w-0.5 rounded-full bg-blue-400/60" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+            {label}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
 function RecordTable({ record, schema }: { record: OilRecord; schema: OilSchema }) {
@@ -44,42 +61,55 @@ function RecordTable({ record, schema }: { record: OilRecord; schema: OilSchema 
   for (const row of rows) {
     if (row.groupLabel && row.groupLabel !== lastGroup) {
       lastGroup = row.groupLabel;
-      renderedRows.push(
-        <tr key={`group-${row.groupLabel}`} className="bg-surface-secondary/70">
-          <td
-            colSpan={3}
-            className="px-3 py-1 text-xs font-semibold tracking-wide text-text-secondary"
-          >
-            {row.groupLabel}
-          </td>
-        </tr>,
-      );
+      renderedRows.push(<GroupHeader key={`group-${row.groupLabel}`} label={row.groupLabel} />);
     }
+    const pct = row.groupLabel === GAS_COMP_GROUP ? parseFloat(row.valueText) : NaN;
+    const showBar = !isNaN(pct) && pct >= 0;
     renderedRows.push(
-      <tr key={row.id} className="border-b border-border-light hover:bg-surface-secondary/50">
-        <td className="max-w-[200px] break-words px-3 py-2 text-text-primary">{row.fieldLabel}</td>
-        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-text-tertiary">
-          {row.fieldKey}
+      <tr
+        key={row.id}
+        className="border-b border-border-light/50 transition-colors hover:bg-surface-secondary/30"
+      >
+        <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
+          <span className="text-sm leading-snug text-text-primary">{row.fieldLabel}</span>
+          <span className="mt-0.5 block font-mono text-[11px] text-text-tertiary/70">
+            {row.fieldKey}
+          </span>
         </td>
-        <td className="max-w-md break-words px-3 py-2 text-text-primary">{row.valueText}</td>
+        <td className="py-2 pl-2 pr-4 align-middle">
+          {showBar ? (
+            <div className="flex items-center gap-2">
+              <span className="w-12 shrink-0 text-right text-sm font-medium tabular-nums text-text-primary">
+                {row.valueText}
+              </span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-tertiary">
+                <div
+                  className="h-full rounded-full bg-blue-400/70"
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-text-primary">
+              {row.valueText !== '' ? (
+                row.valueText
+              ) : (
+                <span className="font-normal text-text-tertiary">—</span>
+              )}
+            </span>
+          )}
+        </td>
       </tr>,
     );
   }
 
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-border-medium bg-surface-secondary">
-          <th className="px-3 py-2 text-left font-medium text-text-secondary">中文名</th>
-          <th className="px-3 py-2 text-left font-medium text-text-secondary">字段名</th>
-          <th className="px-3 py-2 text-left font-medium text-text-secondary">值</th>
-        </tr>
-      </thead>
+    <table className="w-full border-collapse">
       <tbody>{renderedRows}</tbody>
       {rows.length === 0 && (
         <tfoot>
           <tr>
-            <td colSpan={3} className="py-8 text-center text-sm text-text-secondary">
+            <td colSpan={2} className="py-8 text-center text-sm text-text-secondary">
               未提取到任何字段数据。
             </td>
           </tr>
@@ -108,7 +138,7 @@ export default function OilDataViewer({ artifact }: { artifact: Artifact }) {
     const record = data[current];
     return (
       <div className="flex h-full flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-border-medium bg-surface-secondary px-4 py-2">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-medium bg-surface-secondary/60 px-3 py-2">
           <button
             type="button"
             disabled={current === 0}
@@ -118,11 +148,12 @@ export default function OilDataViewer({ artifact }: { artifact: Artifact }) {
           >
             <ChevronLeft className="size-4" />
           </button>
-          <span className="text-sm text-text-secondary">
-            <span className="font-medium text-text-primary">{RecordLabel(record)}</span>
-            {'  '}
-            {current + 1} / {total}
-          </span>
+          <div className="text-center">
+            <span className="text-sm font-semibold text-text-primary">{recordLabel(record)}</span>
+            <span className="ml-2 text-xs text-text-tertiary">
+              {current + 1} / {total}
+            </span>
+          </div>
           <button
             type="button"
             disabled={current === total - 1}

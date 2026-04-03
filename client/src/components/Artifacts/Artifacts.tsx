@@ -2,16 +2,15 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Code, Play, RefreshCw, X, Save } from 'lucide-react';
 import { useSetRecoilState, useResetRecoilState } from 'recoil';
-import { Button, Spinner, useMediaQuery, Radio, useToastContext } from '@librechat/client';
+import { Button, Spinner, useMediaQuery, Radio } from '@librechat/client';
 import type { SandpackPreviewRef } from '@codesandbox/sandpack-react';
 import { useShareContext, useMutationState } from '~/Providers';
-import { useExecuteMCPTool } from '~/data-provider/MCP';
 import useArtifacts from '~/hooks/Artifacts/useArtifacts';
 import DownloadArtifact from './DownloadArtifact';
 import ArtifactVersion from './ArtifactVersion';
 import ArtifactTabs from './ArtifactTabs';
+import OilDataEditDialog from './OilDataEditDialog';
 import { CopyCodeButton } from './Code';
-import { flattenOilDataForSave } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -105,8 +104,6 @@ export default function Artifacts() {
     }
   }, [height, isMobile]);
 
-  const { showToast } = useToastContext();
-
   const {
     activeTab,
     setActiveTab,
@@ -118,57 +115,17 @@ export default function Artifacts() {
 
   const isOilData = currentArtifact?.type != null && currentArtifact.type in OIL_SAVE_CONFIG;
 
-  const { mutate: executeOilSave, isLoading: isSaving } = useExecuteMCPTool({
-    onSuccess: (data) => {
-      showToast({
-        message: data.result || localize('com_ui_save_to_database_success'),
-        status: 'success',
-      });
-    },
-    onError: (error) => {
-      showToast({
-        message: error.message || localize('com_ui_save_to_database_error'),
-        status: 'error',
-      });
-    },
-  });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleSaveToDatabase = useCallback(() => {
     if (!currentArtifact?.content || !currentArtifact.type) {
       return;
     }
-    const saveConfig = OIL_SAVE_CONFIG[currentArtifact.type];
-    if (!saveConfig) {
+    if (!(currentArtifact.type in OIL_SAVE_CONFIG)) {
       return;
     }
-    try {
-      const trimmed = currentArtifact.content.trim();
-      const jsonStr = trimmed.startsWith('```')
-        ? trimmed.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '')
-        : trimmed;
-      const raw = JSON.parse(jsonStr) as unknown;
-      if (raw === null || typeof raw !== 'object') {
-        showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
-        return;
-      }
-      const records: Array<Record<string, unknown>> = Array.isArray(raw)
-        ? (raw as unknown[]).filter(
-            (item): item is Record<string, unknown> =>
-              item !== null && typeof item === 'object' && !Array.isArray(item),
-          )
-        : [raw as Record<string, unknown>];
-      for (const record of records) {
-        executeOilSave({
-          serverName: saveConfig.server,
-          toolName: saveConfig.tool,
-          toolArguments: flattenOilDataForSave(record),
-        });
-      }
-    } catch {
-      showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
-      return;
-    }
-  }, [currentArtifact, executeOilSave, localize, showToast]);
+    setIsEditDialogOpen(true);
+  }, [currentArtifact]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -370,18 +327,11 @@ export default function Artifacts() {
                   size="sm"
                   variant="ghost"
                   onClick={handleSaveToDatabase}
-                  disabled={isSaving}
                   aria-label={localize('com_ui_save_to_database')}
                   className="flex items-center gap-1.5 text-xs"
                 >
-                  {isSaving ? (
-                    <Spinner size={14} />
-                  ) : (
-                    <Save size={14} aria-hidden="true" />
-                  )}
-                  {isSaving
-                    ? localize('com_ui_saving')
-                    : localize('com_ui_save_to_database')}
+                  <Save size={14} aria-hidden="true" />
+                  {localize('com_ui_save_to_database')}
                 </Button>
               )}
               <Button
@@ -435,6 +385,16 @@ export default function Artifacts() {
             </div>
           )}
         </div>
+        {isOilData &&
+          currentArtifact != null &&
+          OIL_SAVE_CONFIG[currentArtifact.type ?? ''] != null && (
+            <OilDataEditDialog
+              open={isEditDialogOpen}
+              onClose={() => setIsEditDialogOpen(false)}
+              artifact={currentArtifact}
+              saveConfig={OIL_SAVE_CONFIG[currentArtifact.type ?? '']!}
+            />
+          )}
       </div>
     </Tabs.Root>
   );
