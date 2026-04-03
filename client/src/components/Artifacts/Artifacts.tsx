@@ -10,8 +10,9 @@ import useArtifacts from '~/hooks/Artifacts/useArtifacts';
 import DownloadArtifact from './DownloadArtifact';
 import ArtifactVersion from './ArtifactVersion';
 import ArtifactTabs from './ArtifactTabs';
+import OilDataEditDialog from './OilDataEditDialog';
 import { CopyCodeButton } from './Code';
-import { flattenOilDataForSave, parseCompositeContent, isSingleSchema, SCHEMA_LABELS } from './oilDataUtils';
+import { parseCompositeContent, isSingleSchema, SCHEMA_LABELS, flattenOilDataForSave } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -132,7 +133,10 @@ export default function Artifacts() {
     (currentArtifact.type in OIL_SAVE_CONFIG ||
       currentArtifact.type === 'application/vnd.oil-composite');
 
-  const { mutate: executeOilSave, isLoading: isSaving } = useExecuteMCPTool({
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCompositeSaving, setIsCompositeSaving] = useState(false);
+
+  const { mutate: executeCompositeSave } = useExecuteMCPTool({
     onSuccess: (data) => {
       showToast({
         message: data.result || localize('com_ui_save_to_database_success'),
@@ -152,14 +156,13 @@ export default function Artifacts() {
       return;
     }
 
-    const isComposite = currentArtifact.type === 'application/vnd.oil-composite';
-
-    if (isComposite) {
+    if (currentArtifact.type === 'application/vnd.oil-composite') {
       const compositeData = parseCompositeContent(currentArtifact.content);
       if (!compositeData) {
         showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
         return;
       }
+      setIsCompositeSaving(true);
       const parts: string[] = [];
       for (const [schema, group] of compositeData) {
         const mime = SCHEMA_TO_MIME[schema];
@@ -168,7 +171,7 @@ export default function Artifacts() {
           continue;
         }
         for (const record of group.records) {
-          executeOilSave({
+          executeCompositeSave({
             serverName: saveConfig.server,
             toolName: saveConfig.tool,
             toolArguments: flattenOilDataForSave(record),
@@ -178,6 +181,7 @@ export default function Artifacts() {
           parts.push(`${SCHEMA_LABELS[schema]} ×${group.records.length}`);
         }
       }
+      setIsCompositeSaving(false);
       if (parts.length > 0) {
         showToast({
           message: `${localize('com_ui_save_all_started')}：${parts.join('、')}`,
@@ -187,38 +191,11 @@ export default function Artifacts() {
       return;
     }
 
-    const saveConfig = OIL_SAVE_CONFIG[currentArtifact.type];
-    if (!saveConfig) {
+    if (!(currentArtifact.type in OIL_SAVE_CONFIG)) {
       return;
     }
-    try {
-      const trimmed = currentArtifact.content.trim();
-      const jsonStr = trimmed.startsWith('```')
-        ? trimmed.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '')
-        : trimmed;
-      const raw = JSON.parse(jsonStr) as unknown;
-      if (raw === null || typeof raw !== 'object') {
-        showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
-        return;
-      }
-      const records: Array<Record<string, unknown>> = Array.isArray(raw)
-        ? (raw as unknown[]).filter(
-            (item): item is Record<string, unknown> =>
-              item !== null && typeof item === 'object' && !Array.isArray(item),
-          )
-        : [raw as Record<string, unknown>];
-      for (const record of records) {
-        executeOilSave({
-          serverName: saveConfig.server,
-          toolName: saveConfig.tool,
-          toolArguments: flattenOilDataForSave(record),
-        });
-      }
-    } catch {
-      showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
-      return;
-    }
-  }, [currentArtifact, executeOilSave, localize, showToast]);
+    setIsEditDialogOpen(true);
+  }, [currentArtifact, executeCompositeSave, showToast, localize]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -420,16 +397,16 @@ export default function Artifacts() {
                   size="sm"
                   variant="ghost"
                   onClick={handleSaveToDatabase}
-                  disabled={isSaving}
+                  disabled={isCompositeSaving}
                   aria-label={localize('com_ui_save_to_database')}
                   className="flex items-center gap-1.5 text-xs"
                 >
-                  {isSaving ? (
+                  {isCompositeSaving ? (
                     <Spinner size={14} />
                   ) : (
                     <Save size={14} aria-hidden="true" />
                   )}
-                  {isSaving
+                  {isCompositeSaving
                     ? localize('com_ui_saving')
                     : currentArtifact?.type === 'application/vnd.oil-composite'
                       ? localize('com_ui_save_all')
@@ -487,6 +464,16 @@ export default function Artifacts() {
             </div>
           )}
         </div>
+        {isOilData &&
+          currentArtifact != null &&
+          OIL_SAVE_CONFIG[currentArtifact.type ?? ''] != null && (
+            <OilDataEditDialog
+              open={isEditDialogOpen}
+              onClose={() => setIsEditDialogOpen(false)}
+              artifact={currentArtifact}
+              saveConfig={OIL_SAVE_CONFIG[currentArtifact.type ?? '']!}
+            />
+          )}
       </div>
     </Tabs.Root>
   );
