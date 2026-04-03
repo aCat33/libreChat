@@ -3,6 +3,7 @@ import { Database, FileUp, CheckCircle2, Loader2 } from 'lucide-react';
 import { OGDialog, OGDialogContent, OGDialogHeader, OGDialogTitle } from '@librechat/client';
 import { EToolResources } from 'librechat-data-provider';
 import type { TranslationKeys } from '~/hooks';
+import { useVectorizationStatus } from '~/hooks/Files/useVectorizationStatus';
 import { useChatContext } from '~/Providers';
 import { useFileHandling, useSubmitMessage, useLocalize } from '~/hooks';
 import { cn } from '~/utils';
@@ -14,6 +15,29 @@ interface ImportType {
 }
 
 const IMPORT_TYPES: ImportType[] = [
+  {
+    id: 'auto',
+    labelKey: 'com_ui_import_auto_detect',
+    prompt:
+      '请仔细分析上传文档的全部内容，识别其中包含的所有数据表类型，以 application/vnd.oil-composite artifact 格式输出。\n' +
+      '输出格式为一个 JSON 对象，key 为数据类型标识，value 为该类型对应的记录数组。\n' +
+      '可用的类型标识及对应含义：\n' +
+      '- oil-data：井基础数据（井名、区块、井型、井别、设计参数等）\n' +
+      '- drilling-daily：钻井日报（井深、进尺、钻头、钻井液等）\n' +
+      '- pre-daily：开钻前日报（各阶段时间节点）\n' +
+      '- key-well：重点井日报（产量、压力、状态等）\n' +
+      '- analysis：化验分析（气样/水样，yplx 区分"气样"或"水样"）\n' +
+      '- workover：修井记录（作业类型、施工内容等）\n' +
+      '- perforation：射孔记录（射孔日期、层位、深度等）\n' +
+      '- diagram：井身结构（图件类型、文件名等）\n\n' +
+      '输出示例：{"analysis": [{...}, {...}], "workover": [{...}]}\n' +
+      '⚠️ 重要规则：\n' +
+      '- 只输出文档中实际存在的数据类型，不要编造或猜测数据\n' +
+      '- 每种类型的字段定义与各单独类型完全相同\n' +
+      '- 如果文档只包含一种类型的数据，也使用此格式输出\n' +
+      '- 每种类型最多输出30条记录，如有更多请在该类型数组末尾追加一条 {"_truncated": true, "_total": 实际总数} 标记\n' +
+      '- 内容为纯JSON，不加代码块',
+  },
   {
     id: 'gas',
     labelKey: 'com_ui_import_gas_analysis',
@@ -51,7 +75,7 @@ const IMPORT_TYPES: ImportType[] = [
     prompt:
       '从上传文档中提取修井记录，以 application/vnd.oil-workover artifact 格式输出。\n' +
       '提取字段：jh(井号)、kssj(作业开始日期)、jssj(作业结束日期)、azlx(作业类型)、azmd(作业目的)、sgnr(施工内容)、sgsd(作业深度m)、azjg(作业结果)、sgdw(施工单位)、bz(备注)\n' +
-      '多条记录时输出JSON数组；内容为纯JSON，不加代码块',
+      '多条记录时输出JSON数组（最多30条，超过时末尾追加 {"_truncated": true, "_total": 实际总数}）；内容为纯JSON，不加代码块',
   },
   {
     id: 'perforation',
@@ -59,7 +83,7 @@ const IMPORT_TYPES: ImportType[] = [
     prompt:
       '从上传文档中提取射孔记录，以 application/vnd.oil-perforation artifact 格式输出。\n' +
       '提取字段：jh(井号)、sksj(射孔日期)、cw(层位)、sk_top(射孔顶深m)、sk_bot(射孔底深m)、skhs(射孔厚度m)、skqx(射孔枪型)、skmd(射孔密度孔/m)、kj(孔径mm)、skfs(射孔方式)、bz(备注)\n' +
-      '多条记录时输出JSON数组；内容为纯JSON，不加代码块',
+      '多条记录时输出JSON数组（最多30条，超过时末尾追加 {"_truncated": true, "_total": 实际总数}）；内容为纯JSON，不加代码块',
   },
   {
     id: 'diagram',
@@ -86,6 +110,9 @@ function ImportData() {
   const pendingFile = pendingFileKey != null ? files.get(pendingFileKey) : null;
   const isFileReady = pendingFile != null && pendingFile.progress === 1;
   const isUploading = pendingFile != null && pendingFile.progress < 1;
+
+  const pendingFileId = (isFileReady && pendingFile?.file_id) ? pendingFile.file_id : null;
+  const { isVectorizing } = useVectorizationStatus(pendingFileId, !!pendingFileId);
 
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
@@ -238,18 +265,26 @@ function ImportData() {
               }}
             />
 
+            {isVectorizing && (
+              <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <Loader2 className="mr-1 inline size-3 animate-spin" />
+                {localize('com_ui_import_vectorizing')}
+              </div>
+            )}
             <button
               type="button"
               onClick={handleExtract}
-              disabled={!isFileReady || selectedTypeId == null}
+              disabled={!isFileReady || selectedTypeId == null || isVectorizing}
               className={cn(
                 'w-full rounded-lg py-2.5 text-sm font-medium transition-all',
-                isFileReady && selectedTypeId != null
+                isFileReady && selectedTypeId != null && !isVectorizing
                   ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
                   : 'cursor-not-allowed bg-surface-tertiary text-text-secondary opacity-50',
               )}
             >
-              {localize('com_ui_import_start_extract')}
+              {isVectorizing
+                ? localize('com_ui_import_wait_indexing')
+                : localize('com_ui_import_start_extract')}
             </button>
           </div>
         </OGDialogContent>

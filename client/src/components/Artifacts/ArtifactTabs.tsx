@@ -19,6 +19,7 @@ const OIL_TYPES = new Set([
   'application/vnd.oil-workover',
   'application/vnd.oil-perforation',
   'application/vnd.oil-diagram',
+  'application/vnd.oil-composite',
 ]);
 
 export default function ArtifactTabs({

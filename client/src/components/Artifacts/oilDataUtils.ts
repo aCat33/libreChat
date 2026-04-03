@@ -1,4 +1,4 @@
-export type OilSchema =
+export type OilSingleSchema =
   | 'oil-data'
   | 'drilling-daily'
   | 'pre-daily'
@@ -7,6 +7,8 @@ export type OilSchema =
   | 'workover'
   | 'perforation'
   | 'diagram';
+
+export type OilSchema = OilSingleSchema | 'composite';
 
 /** Maps artifact MIME type suffix to OilSchema key */
 export const MIME_TO_SCHEMA: Record<string, OilSchema> = {
@@ -18,7 +20,79 @@ export const MIME_TO_SCHEMA: Record<string, OilSchema> = {
   'application/vnd.oil-workover': 'workover',
   'application/vnd.oil-perforation': 'perforation',
   'application/vnd.oil-diagram': 'diagram',
+  'application/vnd.oil-composite': 'composite',
 };
+
+export const SCHEMA_LABELS: Record<OilSingleSchema, string> = {
+  'oil-data': '井基础数据',
+  'drilling-daily': '钻井日报',
+  'pre-daily': '开钻前日报',
+  'key-well': '重点井日报',
+  analysis: '化验分析',
+  workover: '修井记录',
+  perforation: '射孔记录',
+  diagram: '井身结构',
+};
+
+const VALID_SINGLE_SCHEMAS = new Set<string>(Object.keys(SCHEMA_LABELS));
+
+export function isSingleSchema(key: string): key is OilSingleSchema {
+  return VALID_SINGLE_SCHEMAS.has(key);
+}
+
+export interface CompositeGroup {
+  records: Array<Record<string, unknown>>;
+  truncatedTotal?: number;
+}
+
+export type CompositeData = Map<OilSingleSchema, CompositeGroup>;
+
+function isTruncationMarker(item: unknown): boolean {
+  return (
+    item !== null &&
+    typeof item === 'object' &&
+    (item as Record<string, unknown>)['_truncated'] === true
+  );
+}
+
+/**
+ * Parses composite JSON content into a Map keyed by single schema.
+ * Expected shape: `{ "analysis": [...], "workover": [...] }`
+ */
+export function parseCompositeContent(content: string): CompositeData | null {
+  try {
+    const trimmed = content.trim();
+    const jsonStr = trimmed.startsWith('```')
+      ? trimmed.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '')
+      : trimmed;
+    const raw = JSON.parse(jsonStr) as unknown;
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      return null;
+    }
+
+    const result: CompositeData = new Map();
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (!isSingleSchema(key)) {
+        continue;
+      }
+      const arr = Array.isArray(value) ? value : [value];
+      let truncatedTotal: number | undefined;
+      const records = arr.filter((item): item is Record<string, unknown> => {
+        if (isTruncationMarker(item)) {
+          truncatedTotal = (item as Record<string, unknown>)['_total'] as number | undefined;
+          return false;
+        }
+        return item !== null && typeof item === 'object' && !Array.isArray(item);
+      });
+      if (records.length > 0) {
+        result.set(key, { records, truncatedTotal });
+      }
+    }
+    return result.size > 0 ? result : null;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Field label maps (field key → Chinese label)
@@ -240,7 +314,7 @@ export const DIAGRAM_LABELS: Record<string, string> = {
   ms: '描述',
 };
 
-const SCHEMA_LABEL_MAP: Record<OilSchema, Record<string, string>> = {
+const SCHEMA_LABEL_MAP: Record<OilSingleSchema, Record<string, string>> = {
   'oil-data': OIL_FIELD_LABELS,
   'drilling-daily': DRILLING_DAILY_LABELS,
   'pre-daily': PRE_DAILY_LABELS,
@@ -252,7 +326,7 @@ const SCHEMA_LABEL_MAP: Record<OilSchema, Record<string, string>> = {
 };
 
 /** Per-schema field → Chinese category group mapping (for flat schemas) */
-const SCHEMA_GROUP_MAP: Partial<Record<OilSchema, Record<string, string>>> = {
+const SCHEMA_GROUP_MAP: Partial<Record<OilSingleSchema, Record<string, string>>> = {
   analysis: ANALYSIS_FIELD_GROUP,
 };
 
@@ -321,7 +395,7 @@ function humanizeKey(key: string): string {
  */
 export function buildOilDataDisplayRows(
   data: Record<string, unknown>,
-  schema: OilSchema = 'oil-data',
+  schema: OilSingleSchema = 'oil-data',
 ): OilDataDisplayRow[] {
   const rows: OilDataDisplayRow[] = [];
   const fieldLabels = SCHEMA_LABEL_MAP[schema] ?? OIL_FIELD_LABELS;

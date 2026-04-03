@@ -11,7 +11,7 @@ import DownloadArtifact from './DownloadArtifact';
 import ArtifactVersion from './ArtifactVersion';
 import ArtifactTabs from './ArtifactTabs';
 import { CopyCodeButton } from './Code';
-import { flattenOilDataForSave } from './oilDataUtils';
+import { flattenOilDataForSave, parseCompositeContent, isSingleSchema, SCHEMA_LABELS } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -40,6 +40,17 @@ const OIL_SAVE_CONFIG: Record<string, { server: string; tool: string }> = {
     server: 'oilfield-operations',
     tool: 'save_wellbore_diagram',
   },
+};
+
+const SCHEMA_TO_MIME: Record<string, string> = {
+  'oil-data': 'application/vnd.oil-data',
+  'drilling-daily': 'application/vnd.oil-drilling-daily',
+  'pre-daily': 'application/vnd.oil-pre-daily',
+  'key-well': 'application/vnd.oil-key-well',
+  analysis: 'application/vnd.oil-analysis',
+  workover: 'application/vnd.oil-workover',
+  perforation: 'application/vnd.oil-perforation',
+  diagram: 'application/vnd.oil-diagram',
 };
 
 const MAX_BLUR_AMOUNT = 32;
@@ -116,7 +127,10 @@ export default function Artifacts() {
     setCurrentArtifactId,
   } = useArtifacts();
 
-  const isOilData = currentArtifact?.type != null && currentArtifact.type in OIL_SAVE_CONFIG;
+  const isOilData =
+    currentArtifact?.type != null &&
+    (currentArtifact.type in OIL_SAVE_CONFIG ||
+      currentArtifact.type === 'application/vnd.oil-composite');
 
   const { mutate: executeOilSave, isLoading: isSaving } = useExecuteMCPTool({
     onSuccess: (data) => {
@@ -137,6 +151,42 @@ export default function Artifacts() {
     if (!currentArtifact?.content || !currentArtifact.type) {
       return;
     }
+
+    const isComposite = currentArtifact.type === 'application/vnd.oil-composite';
+
+    if (isComposite) {
+      const compositeData = parseCompositeContent(currentArtifact.content);
+      if (!compositeData) {
+        showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
+        return;
+      }
+      const parts: string[] = [];
+      for (const [schema, group] of compositeData) {
+        const mime = SCHEMA_TO_MIME[schema];
+        const saveConfig = mime ? OIL_SAVE_CONFIG[mime] : undefined;
+        if (!saveConfig) {
+          continue;
+        }
+        for (const record of group.records) {
+          executeOilSave({
+            serverName: saveConfig.server,
+            toolName: saveConfig.tool,
+            toolArguments: flattenOilDataForSave(record),
+          });
+        }
+        if (isSingleSchema(schema)) {
+          parts.push(`${SCHEMA_LABELS[schema]} ×${group.records.length}`);
+        }
+      }
+      if (parts.length > 0) {
+        showToast({
+          message: `${localize('com_ui_save_all_started')}：${parts.join('、')}`,
+          status: 'success',
+        });
+      }
+      return;
+    }
+
     const saveConfig = OIL_SAVE_CONFIG[currentArtifact.type];
     if (!saveConfig) {
       return;
@@ -381,7 +431,9 @@ export default function Artifacts() {
                   )}
                   {isSaving
                     ? localize('com_ui_saving')
-                    : localize('com_ui_save_to_database')}
+                    : currentArtifact?.type === 'application/vnd.oil-composite'
+                      ? localize('com_ui_save_all')
+                      : localize('com_ui_save_to_database')}
                 </Button>
               )}
               <Button
