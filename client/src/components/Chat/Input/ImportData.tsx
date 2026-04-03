@@ -1,5 +1,16 @@
 import React, { memo, useRef, useState, useEffect, useCallback } from 'react';
-import { Database, FileUp, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Database,
+  FileUp,
+  CheckCircle2,
+  Loader2,
+  Wand2,
+  Flame,
+  Droplets,
+  Wrench,
+  Target,
+  Layers,
+} from 'lucide-react';
 import { OGDialog, OGDialogContent, OGDialogHeader, OGDialogTitle } from '@librechat/client';
 import { EToolResources } from 'librechat-data-provider';
 import type { TranslationKeys } from '~/hooks';
@@ -114,6 +125,15 @@ const IMPORT_TYPES: ImportType[] = [
   },
 ];
 
+const OTHER_TYPES = IMPORT_TYPES.filter((t) => t.id !== 'auto');
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  gas: <Flame className="size-3.5" />,
+  water: <Droplets className="size-3.5" />,
+  workover: <Wrench className="size-3.5" />,
+  perforation: <Target className="size-3.5" />,
+  diagram: <Layers className="size-3.5" />,
+};
+
 function ImportData() {
   const localize = useLocalize();
   const [open, setOpen] = useState(false);
@@ -130,7 +150,7 @@ function ImportData() {
   const isFileReady = pendingFile != null && pendingFile.progress === 1;
   const isUploading = pendingFile != null && pendingFile.progress < 1;
 
-  const pendingFileId = (isFileReady && pendingFile?.file_id) ? pendingFile.file_id : null;
+  const pendingFileId = isFileReady && pendingFile?.file_id ? pendingFile.file_id : null;
   const { isVectorizing } = useVectorizationStatus(pendingFileId, !!pendingFileId);
 
   const handleOpenChange = useCallback(
@@ -179,6 +199,17 @@ function ImportData() {
   }, [selectedTypeId, isFileReady, submitMessage]);
 
   const canPickFile = selectedTypeId != null && !isUploading;
+  const getImportStep = () => {
+    if (selectedTypeId == null) return 1;
+    if (!isFileReady) return 2;
+    return 3;
+  };
+  const currentStep = getImportStep();
+  const steps = [
+    localize('com_ui_import_step_type'),
+    localize('com_ui_import_step_upload'),
+    localize('com_ui_import_step_extract'),
+  ];
 
   return (
     <>
@@ -200,7 +231,7 @@ function ImportData() {
       </button>
 
       <OGDialog open={open} onOpenChange={handleOpenChange}>
-        <OGDialogContent className="w-[90vw] max-w-md bg-white dark:border-gray-700 dark:bg-gray-850 dark:text-gray-300">
+        <OGDialogContent className="w-[90vw] max-w-[480px] bg-white dark:border-gray-700 dark:bg-gray-850 dark:text-gray-300">
           <OGDialogHeader>
             <OGDialogTitle className="flex items-center gap-2 text-base font-semibold">
               <Database className="size-4" aria-hidden="true" />
@@ -208,103 +239,209 @@ function ImportData() {
             </OGDialogTitle>
           </OGDialogHeader>
 
-          <div className="space-y-4 px-6 pb-6">
-            <div>
-              <p className="mb-2 text-sm text-text-secondary">
-                {localize('com_ui_import_data_select_type')}
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {IMPORT_TYPES.map((type) => (
+          <div className="px-6 pb-6">
+            <div className="mb-5 flex items-center">
+              {steps.map((label, i) => {
+                const stepNum = i + 1;
+                const isDone = currentStep > stepNum;
+                const isActive = currentStep === stepNum;
+                return (
+                  <React.Fragment key={i}>
+                    <div
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs',
+                        isDone && 'text-blue-600',
+                        !isDone && isActive && 'font-medium text-text-primary',
+                        !isDone && !isActive && 'text-text-tertiary',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
+                          isDone && 'bg-blue-500 text-white',
+                          !isDone &&
+                            isActive &&
+                            'border border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30',
+                          !isDone && !isActive && 'bg-surface-tertiary text-text-tertiary',
+                        )}
+                      >
+                        {isDone ? '✓' : stepNum}
+                      </span>
+                      <span>{label}</span>
+                    </div>
+                    {i < steps.length - 1 && (
+                      <div
+                        className={cn(
+                          'mx-2 h-px flex-1',
+                          isDone ? 'bg-blue-400' : 'bg-border-light',
+                        )}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleTypeSelect('auto')}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-all',
+                  'hover:border-blue-400',
+                  selectedTypeId === 'auto'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300'
+                    : 'border-border-medium bg-surface-secondary text-text-primary hover:bg-blue-50/50 dark:hover:bg-blue-900/10',
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-full',
+                    selectedTypeId === 'auto'
+                      ? 'bg-blue-100 dark:bg-blue-900/50'
+                      : 'bg-surface-tertiary',
+                  )}
+                >
+                  <Wand2
+                    className={cn(
+                      'size-4',
+                      selectedTypeId === 'auto' ? 'text-blue-500' : 'text-text-secondary',
+                    )}
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-medium">{localize('com_ui_import_auto_detect')}</div>
+                  <div className="mt-0.5 text-xs text-text-tertiary">
+                    {localize('com_ui_import_auto_hint')}
+                  </div>
+                </div>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                {OTHER_TYPES.map((type, idx) => (
                   <button
                     key={type.id}
                     type="button"
                     onClick={() => handleTypeSelect(type.id)}
                     className={cn(
-                      'rounded-lg border px-2 py-3 text-center text-xs font-medium transition-all',
-                      'hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                      'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-medium transition-all',
+                      'hover:border-blue-400',
+                      idx === OTHER_TYPES.length - 1 &&
+                        OTHER_TYPES.length % 2 === 1 &&
+                        'col-span-2',
                       selectedTypeId === type.id
                         ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'border-border-medium bg-surface-secondary text-text-primary',
+                        : 'border-border-medium bg-surface-secondary text-text-primary hover:bg-blue-50/50 dark:hover:bg-blue-900/10',
                     )}
                   >
+                    <span
+                      className={cn(
+                        'shrink-0',
+                        selectedTypeId === type.id ? 'text-blue-500' : 'text-text-secondary',
+                      )}
+                    >
+                      {TYPE_ICONS[type.id]}
+                    </span>
                     {localize(type.labelKey)}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={canPickFile ? handlePickFile : undefined}
-              disabled={!canPickFile}
-              className={cn(
-                'flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-all',
-                canPickFile
-                  ? 'cursor-pointer border-border-medium hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10'
-                  : 'cursor-not-allowed border-border-light opacity-40',
-              )}
-            >
-              {isUploading && (
-                <>
-                  <Loader2 className="size-6 animate-spin text-blue-500" />
-                  <span className="text-sm text-text-secondary">上传中…</span>
-                </>
-              )}
-              {isFileReady && (
-                <>
-                  <CheckCircle2 className="size-6 text-green-500" />
-                  <span className="max-w-full truncate text-sm text-green-600 dark:text-green-400">
-                    {pendingFile?.filename ?? pendingFile?.file?.name ?? '文件已上传'}
-                  </span>
-                  <span className="text-xs text-text-secondary">点击重新选择</span>
-                </>
-              )}
-              {!isUploading && !isFileReady && (
-                <>
-                  <FileUp className="size-6 text-text-secondary" />
-                  <span className="text-sm text-text-secondary">
-                    {localize('com_ui_import_upload_file')}
-                  </span>
-                  <span className="text-xs text-text-secondary opacity-70">
-                    PDF / 图片 → OCR识别 · Word/WPS → 文档解析
-                  </span>
-                </>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={canPickFile ? handlePickFile : undefined}
+                disabled={!canPickFile}
+                className={cn(
+                  'relative flex min-h-[96px] w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-5 transition-all',
+                  canPickFile
+                    ? 'cursor-pointer border-border-medium hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10'
+                    : 'cursor-not-allowed border-border-light',
+                )}
+              >
+                {!canPickFile && (
+                  <div className="bg-surface-secondary/40 absolute inset-0 rounded-lg" />
+                )}
+                {isUploading && (
+                  <>
+                    <Loader2 className="size-6 animate-spin text-blue-500" />
+                    <span className="text-sm text-text-secondary">
+                      {localize('com_ui_import_uploading')}
+                    </span>
+                  </>
+                )}
+                {isFileReady && (
+                  <>
+                    <CheckCircle2 className="size-6 text-green-500" />
+                    <span className="max-w-full truncate text-sm text-green-600 dark:text-green-400">
+                      {pendingFile?.filename ?? pendingFile?.file?.name ?? '文件已上传'}
+                    </span>
+                    <span className="text-xs text-text-secondary">
+                      {localize('com_ui_import_reselect')}
+                    </span>
+                  </>
+                )}
+                {!isUploading && !isFileReady && (
+                  <>
+                    <FileUp className="size-6 text-text-secondary" />
+                    <span className="text-sm text-text-secondary">
+                      {localize('com_ui_import_upload_file')}
+                    </span>
+                    <span className="text-xs text-text-secondary opacity-70">
+                      {localize('com_ui_import_file_hint')}
+                    </span>
+                  </>
+                )}
+              </button>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.wps,.et,.doc,.docx"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                const useFileSearch = file != null && /\.(doc|wps|et)$/i.test(file.name);
-                handleFileChange(e, useFileSearch ? EToolResources.file_search : EToolResources.context);
-              }}
-            />
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.wps,.et,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  const useFileSearch = file != null && /\.(doc|wps|et)$/i.test(file.name);
+                  handleFileChange(
+                    e,
+                    useFileSearch ? EToolResources.file_search : EToolResources.context,
+                  );
+                }}
+              />
 
-            {isVectorizing && (
-              <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                <Loader2 className="mr-1 inline size-3 animate-spin" />
-                {localize('com_ui_import_vectorizing')}
+              {isVectorizing && (
+                <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                  <Loader2 className="mr-1 inline size-3 animate-spin" />
+                  {localize('com_ui_import_vectorizing')}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                {isFileReady && (
+                  <span className="flex min-w-0 flex-1 items-center gap-1 text-xs text-text-secondary">
+                    <FileUp className="size-3 shrink-0" />
+                    <span className="truncate">
+                      {pendingFile?.filename ?? pendingFile?.file?.name}
+                    </span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleExtract}
+                  disabled={!isFileReady || selectedTypeId == null || isVectorizing}
+                  className={cn(
+                    'rounded-lg py-2.5 text-sm font-medium transition-all',
+                    isFileReady ? 'shrink-0 px-6' : 'w-full',
+                    isFileReady && selectedTypeId != null && !isVectorizing
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                      : 'cursor-not-allowed bg-surface-tertiary text-text-secondary opacity-50',
+                  )}
+                >
+                  {isVectorizing
+                    ? localize('com_ui_import_wait_indexing')
+                    : localize('com_ui_import_start_extract')}
+                </button>
               </div>
-            )}
-            <button
-              type="button"
-              onClick={handleExtract}
-              disabled={!isFileReady || selectedTypeId == null || isVectorizing}
-              className={cn(
-                'w-full rounded-lg py-2.5 text-sm font-medium transition-all',
-                isFileReady && selectedTypeId != null && !isVectorizing
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-                  : 'cursor-not-allowed bg-surface-tertiary text-text-secondary opacity-50',
-              )}
-            >
-              {isVectorizing
-                ? localize('com_ui_import_wait_indexing')
-                : localize('com_ui_import_start_extract')}
-            </button>
+            </div>
           </div>
         </OGDialogContent>
       </OGDialog>

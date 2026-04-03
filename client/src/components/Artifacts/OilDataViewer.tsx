@@ -8,6 +8,7 @@ import {
   SCHEMA_LABELS,
 } from './oilDataUtils';
 import type { OilSingleSchema, OilSchema, CompositeData, CompositeGroup } from './oilDataUtils';
+import { cn } from '~/utils';
 
 type OilRecord = Record<string, unknown>;
 
@@ -65,10 +66,10 @@ function recordLabel(record: OilRecord): string {
 function GroupHeader({ label }: { label: string }) {
   return (
     <tr>
-      <td colSpan={2} className="pb-1 pl-4 pr-4 pt-3">
-        <div className="flex items-center gap-2">
-          <div className="h-3.5 w-0.5 rounded-full bg-blue-400/60" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+      <td colSpan={2} className="pb-1 pt-3">
+        <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/15">
+          <div className="h-3 w-[3px] rounded-full bg-blue-500" />
+          <span className="text-base font-semibold text-blue-600/80 dark:text-blue-400/80">
             {label}
           </span>
         </div>
@@ -96,19 +97,19 @@ function RecordTable({ record, schema }: { record: OilRecord; schema: OilSingleS
       >
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
           <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[12px] text-text-tertiary/70">
+          <span className="mt-0.5 block font-mono text-[14px] text-blue-500">
             {row.fieldKey}
           </span>
         </td>
         <td className="py-2 pl-2 pr-4 align-middle">
           {showBar ? (
-            <div className="flex items-center gap-2">
-              <span className="w-12 shrink-0 text-right text-[15px] font-medium tabular-nums text-text-primary">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[15px] font-medium tabular-nums text-text-primary">
                 {row.valueText}
               </span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-tertiary">
+              <div className="h-2 overflow-hidden rounded-full bg-surface-tertiary">
                 <div
-                  className="h-full rounded-full bg-blue-400/70"
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-300"
                   style={{ width: `${Math.min(pct, 100)}%` }}
                 />
               </div>
@@ -264,25 +265,43 @@ function SingleSchemaViewer({
             type="button"
             disabled={current === 0}
             onClick={() => setIndex(current - 1)}
-            className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"
-            aria-label="上一条"
+            className="flex size-7 items-center justify-center rounded-full bg-surface-tertiary transition-colors hover:bg-surface-hover disabled:opacity-30"
+            title="上一条"
           >
-            <ChevronLeft className="size-4" />
+            <ChevronLeft className="size-3.5" />
           </button>
-          <div className="text-center">
+          <div className="flex flex-col items-center gap-1.5">
             <span className="text-sm font-semibold text-text-primary">{recordLabel(record)}</span>
-            <span className="ml-2 text-xs text-text-tertiary">
-              {current + 1} / {total}
-            </span>
+            {total <= 10 ? (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: total }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setIndex(i)}
+                    className={cn(
+                      'rounded-full transition-all',
+                      i === current
+                        ? 'size-1.5 bg-blue-500'
+                        : 'size-1 bg-border-medium hover:bg-text-tertiary',
+                    )}
+                  />
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-text-tertiary">
+                {current + 1} / {total}
+              </span>
+            )}
           </div>
           <button
             type="button"
             disabled={current === total - 1}
             onClick={() => setIndex(current + 1)}
-            className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"
-            aria-label="下一条"
+            className="flex size-7 items-center justify-center rounded-full bg-surface-tertiary transition-colors hover:bg-surface-hover disabled:opacity-30"
+            title="下一条"
           >
-            <ChevronRight className="size-4" />
+            <ChevronRight className="size-3.5" />
           </button>
         </div>
         <div className="flex-1 overflow-auto p-4">

@@ -122,10 +122,10 @@ function EditableTable({
       lastGroup = row.groupLabel;
       renderedRows.push(
         <tr key={`group-${row.groupLabel}`}>
-          <td colSpan={2} className="pb-1 pl-4 pr-4 pt-3">
-            <div className="flex items-center gap-2">
-              <div className="h-3.5 w-0.5 rounded-full bg-blue-400/60" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+          <td colSpan={2} className="pb-1 pt-3">
+            <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/15">
+              <div className="h-3 w-[3px] rounded-full bg-blue-500" />
+              <span className="text-base font-semibold text-blue-600/80 dark:text-blue-400/80">
                 {row.groupLabel}
               </span>
             </div>
@@ -138,7 +138,7 @@ function EditableTable({
       <tr key={row.id} className="group border-b border-border-light/50 hover:bg-surface-secondary/30">
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
           <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[12px] text-text-tertiary/70">
+          <span className="mt-0.5 block font-mono text-[14px] text-blue-500">
             {row.fieldKey}
           </span>
         </td>
@@ -355,7 +355,7 @@ export default function OilDataEditDialog({
               variant="ghost"
               onClick={addRecord}
               disabled={isSaving}
-              className="flex items-center gap-1.5 text-xs"
+              className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
             >
               <Plus className="size-3.5" aria-hidden="true" />
               {localize('com_ui_add_record')}
@@ -399,7 +399,7 @@ export default function OilDataEditDialog({
             variant="default"
             onClick={handleSave}
             disabled={isSaving || records.length === 0}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-600/50"
           >
             {isSaving && <Spinner size={14} />}
             {isSaving
