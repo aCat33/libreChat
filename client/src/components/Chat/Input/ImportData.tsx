@@ -41,6 +41,10 @@ const IMPORT_TYPES: ImportType[] = [
       '- workover：修井记录（作业类型、施工内容等）\n' +
       '- perforation：射孔记录（射孔日期、层位、深度等）\n' +
       '- diagram：井身结构（图件类型、文件名等）\n\n' +
+      '必须严格使用以下格式输出，不要有任何其他文字或解释：\n' +
+      ':::artifact{identifier="composite-import" type="application/vnd.oil-composite" title="复合数据导入"}\n' +
+      '[JSON对象，直接写JSON，不加代码块围栏]\n' +
+      ':::\n' +
       '输出示例：{"analysis": [{...}, {...}], "workover": [{...}]}\n' +
       '⚠️ 重要规则：\n' +
       '- 只输出文档中实际存在的数据类型，不要编造或猜测数据\n' +

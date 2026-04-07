@@ -273,20 +273,25 @@ function SingleSchemaViewer({
           <div className="flex flex-col items-center gap-1.5">
             <span className="text-sm font-semibold text-text-primary">{recordLabel(record)}</span>
             {total <= 10 ? (
-              <div className="flex items-center gap-1">
-                {Array.from({ length: total }, (_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setIndex(i)}
-                    className={cn(
-                      'rounded-full transition-all',
-                      i === current
-                        ? 'size-1.5 bg-blue-500'
-                        : 'size-1 bg-border-medium hover:bg-text-tertiary',
-                    )}
-                  />
-                ))}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: total }, (_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setIndex(i)}
+                      className={cn(
+                        'rounded-full transition-all',
+                        i === current
+                          ? 'size-1.5 bg-blue-500'
+                          : 'size-1 bg-border-medium hover:bg-text-tertiary',
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-text-tertiary">
+                  {current + 1} / {total}
+                </span>
               </div>
             ) : (
               <span className="text-xs text-text-tertiary">

@@ -396,24 +396,26 @@ function humanizeKey(key: string): string {
 export function buildOilDataDisplayRows(
   data: Record<string, unknown>,
   schema: OilSingleSchema = 'oil-data',
+  options: { includeEmpty?: boolean } = {},
 ): OilDataDisplayRow[] {
+  const { includeEmpty = false } = options;
   const rows: OilDataDisplayRow[] = [];
   const fieldLabels = SCHEMA_LABEL_MAP[schema] ?? OIL_FIELD_LABELS;
   const fieldGroups = SCHEMA_GROUP_MAP[schema];
 
   const walk = (node: Record<string, unknown>, path: string[]) => {
     for (const [key, raw] of Object.entries(node)) {
-      if (raw === null || raw === undefined || raw === '') {
+      if (!includeEmpty && (raw === null || raw === undefined || raw === '')) {
         continue;
       }
 
-      if (isPlainRecord(raw)) {
+      if (raw !== null && raw !== undefined && isPlainRecord(raw)) {
         walk(raw, [...path, key]);
         continue;
       }
 
       const valueText = formatLeafValue(raw);
-      if (valueText === '') {
+      if (!includeEmpty && valueText === '') {
         continue;
       }
 
@@ -435,6 +437,12 @@ export function buildOilDataDisplayRows(
 
   walk(data, []);
   return rows;
+}
+
+/** Creates a blank flat record with all known fields for a schema, all set to null */
+export function createBlankRecord(schema: OilSingleSchema): Record<string, null> {
+  const labels = SCHEMA_LABEL_MAP[schema] ?? OIL_FIELD_LABELS;
+  return Object.fromEntries(Object.keys(labels).map((k) => [k, null]));
 }
 
 /**

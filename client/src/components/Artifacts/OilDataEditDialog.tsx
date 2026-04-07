@@ -5,13 +5,14 @@ import {
   OGDialogContent,
   OGDialogHeader,
   OGDialogTitle,
+  OGDialogFooter,
   Button,
   Spinner,
   useToastContext,
 } from '@librechat/client';
 import type { Artifact } from '~/common';
 import { useExecuteMCPTool } from '~/data-provider/MCP';
-import { buildOilDataDisplayRows, flattenOilDataForSave, MIME_TO_SCHEMA } from './oilDataUtils';
+import { buildOilDataDisplayRows, flattenOilDataForSave, MIME_TO_SCHEMA, createBlankRecord } from './oilDataUtils';
 import type { OilSingleSchema } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import type { TranslationKeys } from '~/hooks';
@@ -69,13 +70,15 @@ function EditableTable({
   schema,
   onChange,
   localize,
+  alwaysEdit = false,
 }: {
   record: FlatRecord;
   schema: OilSingleSchema;
   onChange: (updated: FlatRecord) => void;
   localize: (key: TranslationKeys) => string;
+  alwaysEdit?: boolean;
 }) {
-  const rows = buildOilDataDisplayRows(record, schema);
+  const rows = buildOilDataDisplayRows(record, schema, { includeEmpty: true });
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +118,19 @@ function EditableTable({
     }
   };
 
+  const handleDirectChange = useCallback(
+    (fieldKey: string, value: string) => {
+      const original = record[fieldKey];
+      let newValue: unknown = value === '' ? null : value;
+      if (typeof original === 'number' && value !== '') {
+        const n = Number(value);
+        if (!isNaN(n)) newValue = n;
+      }
+      onChange({ ...record, [fieldKey]: newValue });
+    },
+    [record, onChange],
+  );
+
   const renderedRows: React.ReactNode[] = [];
   let lastGroup = '';
   for (const row of rows) {
@@ -134,6 +150,8 @@ function EditableTable({
       );
     }
     const isEditing = editingKey === row.fieldKey;
+    const rawValue = record[row.fieldKey];
+    const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : '';
     renderedRows.push(
       <tr key={row.id} className="group border-b border-border-light/50 hover:bg-surface-secondary/30">
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
@@ -142,11 +160,18 @@ function EditableTable({
             {row.fieldKey}
           </span>
         </td>
-        <td
-          className="cursor-pointer py-1.5 pl-2 pr-3 align-middle"
-          onClick={() => !isEditing && startEdit(row.fieldKey)}
-        >
-          {isEditing ? (
+        <td className="py-1.5 pl-2 pr-3 align-middle" onClick={() => !alwaysEdit && !isEditing && startEdit(row.fieldKey)}>
+          {alwaysEdit ? (
+            <input
+              className="w-full rounded border border-border-light bg-surface-primary px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20"
+              value={currentVal}
+              placeholder="—"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              onChange={(e) => handleDirectChange(row.fieldKey, e.target.value)}
+            />
+          ) : isEditing ? (
             <input
               ref={inputRef}
               className="w-full rounded border border-blue-400 bg-surface-primary px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
@@ -156,7 +181,7 @@ function EditableTable({
               onKeyDown={handleKeyDown}
             />
           ) : (
-            <div className="flex items-center justify-between gap-1 rounded px-1 py-1 transition-colors group-hover:bg-surface-hover">
+            <div className="flex cursor-pointer items-center justify-between gap-1 rounded px-1 py-1 transition-colors group-hover:bg-surface-hover">
               <span className="text-[15px] text-text-primary">
                 {row.valueText !== '' ? (
                   row.valueText
@@ -180,7 +205,7 @@ function EditableTable({
             {localize('com_ui_oil_field_label')}
           </th>
           <th className="py-2.5 pl-3 pr-4 text-left text-sm font-semibold text-text-primary">
-            {localize('com_ui_oil_field_value_click')}
+            {alwaysEdit ? '值' : localize('com_ui_oil_field_value_click')}
           </th>
         </tr>
       </thead>
@@ -220,6 +245,8 @@ export default function OilDataEditDialog({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [newRecordIndices, setNewRecordIndices] = useState<Set<number>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const recordsRef = useRef<FlatRecord[]>(records);
   recordsRef.current = records;
@@ -233,6 +260,8 @@ export default function OilDataEditDialog({
       setCurrentIndex(0);
       setSavedCount(0);
       setIsSaving(false);
+      setNewRecordIndices(new Set());
+      setConfirmingDelete(false);
       saveProgressRef.current = { ok: 0, err: 0, total: 0 };
     }
   }, [open, artifact.content]);
@@ -249,11 +278,22 @@ export default function OilDataEditDialog({
   );
 
   const addRecord = useCallback(() => {
-    const template = records[0] ?? {};
-    const blank: FlatRecord = Object.fromEntries(Object.keys(template).map((k) => [k, null]));
+    const blank: FlatRecord = createBlankRecord(schema);
+    const newIdx = records.length;
     setRecords((prev) => [...prev, blank]);
-    setCurrentIndex(records.length);
-  }, [records]);
+    setCurrentIndex(newIdx);
+    setNewRecordIndices((prev) => new Set([...prev, newIdx]));
+  }, [records, schema]);
+
+  const discardNewRecord = useCallback(() => {
+    setRecords((prev) => prev.filter((_, i) => i !== current));
+    setNewRecordIndices((prev) => { const next = new Set(prev); next.delete(current); return next; });
+    setCurrentIndex(Math.max(0, current - 1));
+  }, [current]);
+
+  const confirmNewRecord = useCallback(() => {
+    setNewRecordIndices((prev) => { const next = new Set(prev); next.delete(current); return next; });
+  }, [current]);
 
   const deleteCurrentRecord = useCallback(() => {
     if (total <= 1) {
@@ -262,6 +302,7 @@ export default function OilDataEditDialog({
     }
     setRecords((prev) => prev.filter((_, i) => i !== current));
     setCurrentIndex(Math.max(0, current - 1));
+    setConfirmingDelete(false);
   }, [current, total, showToast, localize]);
 
   const { mutate: executeSave } = useExecuteMCPTool({
@@ -311,13 +352,20 @@ export default function OilDataEditDialog({
     }
   }, [records, isSaving, executeSave, saveConfig]);
 
+  const isNewRecord = newRecordIndices.has(current);
+
   return (
-    <OGDialog open={open} onOpenChange={(isOpen) => !isOpen && !isSaving && onClose()}>
-      <OGDialogContent className="flex max-h-[90vh] w-[90vw] max-w-3xl flex-col overflow-hidden bg-surface-primary dark:border-gray-700">
+    <>
+      <OGDialog open={open} onOpenChange={(isOpen) => !isOpen && !isSaving && onClose()}>
+        <OGDialogContent
+          className="flex max-h-[90vh] w-[90vw] max-w-3xl flex-col overflow-hidden bg-surface-primary dark:border-gray-700"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
         <OGDialogHeader className="flex-shrink-0 px-4 pt-4">
           <OGDialogTitle className="flex items-center justify-between">
-            <span>{localize('com_ui_edit_and_save_data')}</span>
-            {total > 0 && currentRecord != null && (
+            <span>{isNewRecord ? '新增记录' : localize('com_ui_edit_and_save_data')}</span>
+            {!isNewRecord && total > 0 && currentRecord != null && (
               <span className="text-sm font-normal text-text-secondary">
                 {getRecordLabel(currentRecord)}&nbsp;&nbsp;{current + 1} / {total}
               </span>
@@ -326,52 +374,56 @@ export default function OilDataEditDialog({
         </OGDialogHeader>
 
         {/* 记录导航 & 操作 */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-border-light px-4 py-2.5">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              title="上一条"
-              disabled={current === 0}
-              onClick={() => setCurrentIndex(current - 1)}
-              className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"
-              aria-label="上一条"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
-              title="下一条"
-              disabled={current >= total - 1}
-              onClick={() => setCurrentIndex(current + 1)}
-              className="rounded p-1 hover:bg-surface-hover disabled:opacity-30"
-              aria-label="下一条"
-            >
-              <ChevronRight className="size-4" />
-            </button>
+        {!isNewRecord && (
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-border-light px-4 py-2.5">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="上一条"
+                disabled={current === 0}
+                onClick={() => { setCurrentIndex(current - 1); }}
+                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-30"
+                aria-label="上一条"
+              >
+                <ChevronLeft className="size-4" />
+                上一条
+              </button>
+              <button
+                type="button"
+                title="下一条"
+                disabled={current >= total - 1}
+                onClick={() => { setCurrentIndex(current + 1); }}
+                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-30"
+                aria-label="下一条"
+              >
+                下一条
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={addRecord}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                {localize('com_ui_add_record')}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={total <= 1 || isSaving}
+                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 disabled:opacity-30"
+              >
+                <Trash2 className="size-3.5" aria-hidden="true" />
+                {localize('com_ui_delete_record')}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={addRecord}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              {localize('com_ui_add_record')}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={deleteCurrentRecord}
-              disabled={total <= 1 || isSaving}
-              className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 disabled:opacity-30"
-            >
-              <Trash2 className="size-3.5" aria-hidden="true" />
-              {localize('com_ui_delete_record')}
-            </Button>
-          </div>
-        </div>
+        )}
 
         {/* 可编辑表格 */}
         <div className="min-h-0 flex-1 overflow-auto">
@@ -382,6 +434,7 @@ export default function OilDataEditDialog({
               schema={schema}
               onChange={updateCurrentRecord}
               localize={localize}
+              alwaysEdit={isNewRecord}
             />
           ) : (
             <div className="flex h-full items-center justify-center p-8 text-sm text-text-secondary">
@@ -392,22 +445,66 @@ export default function OilDataEditDialog({
 
         {/* 底部操作 */}
         <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-border-light px-4 py-3">
-          <Button variant="ghost" onClick={onClose} disabled={isSaving}>
-            {localize('com_ui_cancel')}
-          </Button>
-          <Button
-            variant="default"
-            onClick={handleSave}
-            disabled={isSaving || records.length === 0}
-            className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-600/50"
-          >
-            {isSaving && <Spinner size={14} />}
-            {isSaving
-              ? `${localize('com_ui_saving')} ${savedCount}/${total}`
-              : localize('com_ui_save_and_download')}
-          </Button>
+          {isNewRecord ? (
+            <>
+              <Button variant="ghost" onClick={discardNewRecord} disabled={isSaving}>
+                取消
+              </Button>
+              <Button
+                variant="default"
+                onClick={confirmNewRecord}
+                className="flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
+              >
+                确认新增
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={onClose} disabled={isSaving}>
+                {localize('com_ui_cancel')}
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleSave}
+                disabled={isSaving || records.length === 0}
+                className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-600/50"
+              >
+                {isSaving && <Spinner size={14} />}
+                {isSaving
+                  ? `${localize('com_ui_saving')} ${savedCount}/${total}`
+                  : localize('com_ui_save_and_download')}
+              </Button>
+            </>
+          )}
         </div>
       </OGDialogContent>
     </OGDialog>
+
+    <OGDialog open={confirmingDelete} onOpenChange={(open) => !open && setConfirmingDelete(false)}>
+      <OGDialogContent className="w-80 bg-surface-primary dark:border-gray-700" showCloseButton={false}>
+        <OGDialogHeader>
+          <OGDialogTitle className="flex items-center gap-2 text-base">
+            <Trash2 className="size-4 text-red-500" aria-hidden="true" />
+            删除记录
+          </OGDialogTitle>
+        </OGDialogHeader>
+        <p className="text-sm text-text-secondary">
+          确认要删除当前记录「{currentRecord != null ? getRecordLabel(currentRecord) : ''}」？删除后无法恢复。
+        </p>
+        <OGDialogFooter className="flex justify-end gap-3 pt-2">
+          <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+            取消
+          </Button>
+          <Button
+            variant="default"
+            onClick={deleteCurrentRecord}
+            className="bg-red-600 text-white hover:bg-red-700 active:bg-red-800"
+          >
+            确认删除
+          </Button>
+        </OGDialogFooter>
+      </OGDialogContent>
+    </OGDialog>
+    </>
   );
 }
