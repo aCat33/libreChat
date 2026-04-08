@@ -254,7 +254,7 @@ function ImportData() {
                     <div
                       className={cn(
                         'flex items-center gap-1.5 text-xs',
-                        isDone && 'text-blue-600',
+                        isDone && 'text-blue-600 dark:text-blue-400',
                         !isDone && isActive && 'font-medium text-text-primary',
                         !isDone && !isActive && 'text-text-tertiary',
                       )}
@@ -265,7 +265,7 @@ function ImportData() {
                           isDone && 'bg-blue-500 text-white',
                           !isDone &&
                             isActive &&
-                            'border border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30',
+                            'border border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300',
                           !isDone && !isActive && 'bg-surface-tertiary text-text-tertiary',
                         )}
                       >

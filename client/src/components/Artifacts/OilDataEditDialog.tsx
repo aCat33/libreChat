@@ -139,9 +139,9 @@ function EditableTable({
       renderedRows.push(
         <tr key={`group-${row.groupLabel}`}>
           <td colSpan={2} className="pb-1 pt-3">
-            <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/15">
-              <div className="h-3 w-[3px] rounded-full bg-blue-500" />
-              <span className="text-base font-semibold text-blue-600/80 dark:text-blue-400/80">
+            <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/30">
+              <div className="h-3 w-[3px] rounded-full bg-blue-500 dark:bg-blue-400" />
+              <span className="text-base font-semibold text-blue-600/80 dark:text-blue-300">
                 {row.groupLabel}
               </span>
             </div>
@@ -153,17 +153,17 @@ function EditableTable({
     const rawValue = record[row.fieldKey];
     const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : '';
     renderedRows.push(
-      <tr key={row.id} className="group border-b border-border-light/50 hover:bg-surface-secondary/30">
+      <tr key={row.id} className="group border-b border-border-light/50 hover:bg-surface-secondary/30 dark:border-border-medium/40 dark:hover:bg-surface-secondary/50">
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
           <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[14px] text-blue-500">
+          <span className="mt-0.5 block font-mono text-[14px] text-blue-500 dark:text-blue-400">
             {row.fieldKey}
           </span>
         </td>
         <td className="py-1.5 pl-2 pr-3 align-middle" onClick={() => !alwaysEdit && !isEditing && startEdit(row.fieldKey)}>
           {alwaysEdit ? (
             <input
-              className="w-full rounded border border-border-light bg-surface-primary px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20"
+              className="w-full rounded border border-border-light bg-white/5 px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 dark:border-white/30 dark:bg-white/5 dark:text-white dark:placeholder-white/30 dark:focus:border-blue-400 dark:focus:bg-white/8 dark:focus:ring-blue-400/30"
               value={currentVal}
               placeholder="—"
               autoComplete="off"
@@ -174,7 +174,7 @@ function EditableTable({
           ) : isEditing ? (
             <input
               ref={inputRef}
-              className="w-full rounded border border-blue-400 bg-surface-primary px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
+              className="w-full rounded border border-blue-400 bg-white/5 px-2 py-1 text-[15px] text-text-primary outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 dark:border-blue-400 dark:bg-white/5 dark:text-white dark:focus:border-blue-400 dark:focus:bg-white/8 dark:focus:ring-blue-400/30"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitEdit}
@@ -382,7 +382,7 @@ export default function OilDataEditDialog({
                 title="上一条"
                 disabled={current === 0}
                 onClick={() => { setCurrentIndex(current - 1); }}
-                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-30"
+                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
                 aria-label="上一条"
               >
                 <ChevronLeft className="size-4" />
@@ -393,7 +393,7 @@ export default function OilDataEditDialog({
                 title="下一条"
                 disabled={current >= total - 1}
                 onClick={() => { setCurrentIndex(current + 1); }}
-                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-30"
+                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
                 aria-label="下一条"
               >
                 下一条
@@ -406,7 +406,7 @@ export default function OilDataEditDialog({
                 variant="ghost"
                 onClick={addRecord}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
               >
                 <Plus className="size-3.5" aria-hidden="true" />
                 {localize('com_ui_add_record')}
@@ -416,7 +416,7 @@ export default function OilDataEditDialog({
                 variant="ghost"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={total <= 1 || isSaving}
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 disabled:opacity-30"
+                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-30"
               >
                 <Trash2 className="size-3.5" aria-hidden="true" />
                 {localize('com_ui_delete_record')}

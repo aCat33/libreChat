@@ -67,9 +67,9 @@ function GroupHeader({ label }: { label: string }) {
   return (
     <tr>
       <td colSpan={2} className="pb-1 pt-3">
-        <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/15">
-          <div className="h-3 w-[3px] rounded-full bg-blue-500" />
-          <span className="text-base font-semibold text-blue-600/80 dark:text-blue-400/80">
+        <div className="mx-3 flex items-center gap-2 rounded-md bg-blue-50/70 px-2.5 py-1.5 dark:bg-blue-900/30">
+          <div className="h-3 w-[3px] rounded-full bg-blue-500 dark:bg-blue-400" />
+          <span className="text-base font-semibold text-blue-600/80 dark:text-blue-300">
             {label}
           </span>
         </div>
@@ -93,11 +93,11 @@ function RecordTable({ record, schema }: { record: OilRecord; schema: OilSingleS
     renderedRows.push(
       <tr
         key={row.id}
-        className="border-b border-border-light/50 transition-colors hover:bg-surface-secondary/30"
+        className="border-b border-border-light/50 transition-colors hover:bg-surface-secondary/30 dark:border-border-medium/40 dark:hover:bg-surface-secondary/50"
       >
         <td className="w-[44%] py-2.5 pl-5 pr-2 align-middle">
           <span className="text-[15px] leading-snug text-text-primary">{row.fieldLabel}</span>
-          <span className="mt-0.5 block font-mono text-[14px] text-blue-500">
+          <span className="mt-0.5 block font-mono text-[14px] text-blue-500 dark:text-blue-400">
             {row.fieldKey}
           </span>
         </td>
@@ -283,8 +283,8 @@ function SingleSchemaViewer({
                       className={cn(
                         'rounded-full transition-all',
                         i === current
-                          ? 'size-1.5 bg-blue-500'
-                          : 'size-1 bg-border-medium hover:bg-text-tertiary',
+                          ? 'size-2 bg-blue-500 dark:bg-blue-400'
+                          : 'size-1.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500',
                       )}
                     />
                   ))}
