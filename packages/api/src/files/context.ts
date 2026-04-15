@@ -104,9 +104,26 @@ export async function extractFileContext({
       tokenCountFn,
     });
 
-    if (wasTruncated) {
+    if (wasTruncated && userQuery && userId && process.env.RAG_API_URL && file.file_id) {
       logger.warn(
-        `[extractFileContext] Text truncated for "${file.filename}" due to token limit (${fileTokenLimit})`,
+        `[extractFileContext] "${file.filename}" exceeds token limit (${fileTokenLimit}), falling back to vector search to avoid data loss`,
+      );
+      try {
+        const chunks = await vectorSearch(userQuery, file.file_id, userId, ragConfig.topK);
+        if (chunks.length > 0) {
+          const formattedChunks = formatChunks(chunks, file.filename);
+          resultText += `${!resultText ? 'Attached document(s):\n```md' : '\n\n---\n\n'}${formattedChunks}`;
+          continue;
+        }
+        logger.warn(
+          `[extractFileContext] Vector search returned no results for "${file.filename}", using truncated text`,
+        );
+      } catch (err) {
+        logger.error(`[extractFileContext] Vector search fallback failed for "${file.filename}", using truncated text`, err);
+      }
+    } else if (wasTruncated) {
+      logger.warn(
+        `[extractFileContext] Text truncated for "${file.filename}" due to token limit (${fileTokenLimit}) — configure RAG_API_URL to enable vector search fallback`,
       );
     }
 
