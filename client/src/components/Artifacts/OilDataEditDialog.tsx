@@ -12,12 +12,23 @@ import {
 } from '@librechat/client';
 import type { Artifact } from '~/common';
 import { useExecuteMCPTool } from '~/data-provider/MCP';
-import { buildOilDataDisplayRows, flattenOilDataForSave, MIME_TO_SCHEMA, createBlankRecord } from './oilDataUtils';
+import { buildOilDataDisplayRows, flattenOilDataForSave, MIME_TO_SCHEMA, SCHEMA_LABELS, createBlankRecord, parseCompositeContent } from './oilDataUtils';
 import type { OilSingleSchema } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import type { TranslationKeys } from '~/hooks';
 
 type FlatRecord = Record<string, unknown>;
+
+const SCHEMA_SAVE_CONFIG: Record<OilSingleSchema, { server: string; tool: string }> = {
+  'oil-data': { server: 'oilfield-wells', tool: 'save_well_data' },
+  'drilling-daily': { server: 'oilfield-dailyreports', tool: 'save_drilling_daily' },
+  'pre-daily': { server: 'oilfield-dailyreports', tool: 'save_drilling_pre_daily' },
+  'key-well': { server: 'oilfield-dailyreports', tool: 'save_key_well_daily' },
+  analysis: { server: 'oilfield-operations', tool: 'save_well_analysis' },
+  workover: { server: 'oilfield-operations', tool: 'save_workover_record' },
+  perforation: { server: 'oilfield-operations', tool: 'save_perforation_record' },
+  diagram: { server: 'oilfield-operations', tool: 'save_wellbore_diagram' },
+};
 
 function parseAndFlattenRecords(content: string | undefined): FlatRecord[] {
   if (!content) {
@@ -227,21 +238,21 @@ export interface OilDataEditDialogProps {
   open: boolean;
   onClose: () => void;
   artifact: Artifact;
-  saveConfig: { server: string; tool: string };
 }
 
 export default function OilDataEditDialog({
   open,
   onClose,
   artifact,
-  saveConfig,
 }: OilDataEditDialogProps) {
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const schemaRaw = MIME_TO_SCHEMA[artifact.type ?? ''] ?? 'oil-data';
-  const schema: OilSingleSchema = schemaRaw === 'composite' ? 'oil-data' : schemaRaw;
+  const isComposite = schemaRaw === 'composite';
+  const schema: OilSingleSchema = isComposite ? 'oil-data' : schemaRaw;
 
   const [records, setRecords] = useState<FlatRecord[]>([]);
+  const [recordSchemas, setRecordSchemas] = useState<OilSingleSchema[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -255,8 +266,25 @@ export default function OilDataEditDialog({
 
   useEffect(() => {
     if (open) {
-      const parsed = parseAndFlattenRecords(artifact.content);
-      setRecords(parsed);
+      if (isComposite) {
+        const compositeData = parseCompositeContent(artifact.content ?? '');
+        const flatRecords: FlatRecord[] = [];
+        const schemas: OilSingleSchema[] = [];
+        if (compositeData) {
+          for (const [schemaKey, group] of compositeData) {
+            for (const record of group.records) {
+              flatRecords.push(flattenOilDataForSave(record));
+              schemas.push(schemaKey);
+            }
+          }
+        }
+        setRecords(flatRecords);
+        setRecordSchemas(schemas);
+      } else {
+        const parsed = parseAndFlattenRecords(artifact.content);
+        setRecords(parsed);
+        setRecordSchemas(parsed.map(() => schema));
+      }
       setCurrentIndex(0);
       setSavedCount(0);
       setIsSaving(false);
@@ -264,11 +292,13 @@ export default function OilDataEditDialog({
       setConfirmingDelete(false);
       saveProgressRef.current = { ok: 0, err: 0, total: 0 };
     }
-  }, [open, artifact.content]);
+  }, [open, artifact.content, isComposite, schema]);
 
   const total = records.length;
   const current = Math.min(currentIndex, Math.max(0, total - 1));
   const currentRecord = records[current];
+
+  const currentSchema = recordSchemas[current] ?? schema;
 
   const updateCurrentRecord = useCallback(
     (updated: FlatRecord) => {
@@ -278,15 +308,17 @@ export default function OilDataEditDialog({
   );
 
   const addRecord = useCallback(() => {
-    const blank: FlatRecord = createBlankRecord(schema);
+    const blank: FlatRecord = createBlankRecord(currentSchema);
     const newIdx = records.length;
     setRecords((prev) => [...prev, blank]);
+    setRecordSchemas((prev) => [...prev, currentSchema]);
     setCurrentIndex(newIdx);
     setNewRecordIndices((prev) => new Set([...prev, newIdx]));
-  }, [records, schema]);
+  }, [records, currentSchema]);
 
   const discardNewRecord = useCallback(() => {
     setRecords((prev) => prev.filter((_, i) => i !== current));
+    setRecordSchemas((prev) => prev.filter((_, i) => i !== current));
     setNewRecordIndices((prev) => { const next = new Set(prev); next.delete(current); return next; });
     setCurrentIndex(Math.max(0, current - 1));
   }, [current]);
@@ -301,9 +333,13 @@ export default function OilDataEditDialog({
       return;
     }
     setRecords((prev) => prev.filter((_, i) => i !== current));
+    setRecordSchemas((prev) => prev.filter((_, i) => i !== current));
     setCurrentIndex(Math.max(0, current - 1));
     setConfirmingDelete(false);
   }, [current, total, showToast, localize]);
+
+  const recordSchemasRef = useRef<OilSingleSchema[]>(recordSchemas);
+  recordSchemasRef.current = recordSchemas;
 
   const { mutate: executeSave } = useExecuteMCPTool({
     onSuccess: (data) => {
@@ -343,14 +379,16 @@ export default function OilDataEditDialog({
     saveProgressRef.current = { ok: 0, err: 0, total: records.length };
     setSavedCount(0);
     setIsSaving(true);
-    for (const record of records) {
+    for (let i = 0; i < records.length; i++) {
+      const recSchema = recordSchemasRef.current[i] ?? schema;
+      const saveConfig = SCHEMA_SAVE_CONFIG[recSchema];
       executeSave({
         serverName: saveConfig.server,
         toolName: saveConfig.tool,
-        toolArguments: record,
+        toolArguments: records[i],
       });
     }
-  }, [records, isSaving, executeSave, saveConfig]);
+  }, [records, isSaving, executeSave, schema]);
 
   const isNewRecord = newRecordIndices.has(current);
 
@@ -367,6 +405,7 @@ export default function OilDataEditDialog({
             <span>{isNewRecord ? '新增记录' : localize('com_ui_edit_and_save_data')}</span>
             {!isNewRecord && total > 0 && currentRecord != null && (
               <span className="text-sm font-normal text-text-secondary">
+                {isComposite && SCHEMA_LABELS[currentSchema] ? `[${SCHEMA_LABELS[currentSchema]}] ` : ''}
                 {getRecordLabel(currentRecord)}&nbsp;&nbsp;{current + 1} / {total}
               </span>
             )}
@@ -382,10 +421,10 @@ export default function OilDataEditDialog({
                 title="上一条"
                 disabled={current === 0}
                 onClick={() => { setCurrentIndex(current - 1); }}
-                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
+                className="flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
                 aria-label="上一条"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronLeft className="size-5" />
                 上一条
               </button>
               <button
@@ -393,11 +432,11 @@ export default function OilDataEditDialog({
                 title="下一条"
                 disabled={current >= total - 1}
                 onClick={() => { setCurrentIndex(current + 1); }}
-                className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
+                className="flex items-center gap-1 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-surface-hover dark:text-gray-200 dark:hover:bg-surface-hover disabled:opacity-30"
                 aria-label="下一条"
               >
                 下一条
-                <ChevronRight className="size-4" />
+                <ChevronRight className="size-5" />
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -406,9 +445,9 @@ export default function OilDataEditDialog({
                 variant="ghost"
                 onClick={addRecord}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+                className="flex items-center gap-1.5 text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
               >
-                <Plus className="size-3.5" aria-hidden="true" />
+                <Plus className="size-4" aria-hidden="true" />
                 {localize('com_ui_add_record')}
               </Button>
               <Button
@@ -416,9 +455,9 @@ export default function OilDataEditDialog({
                 variant="ghost"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={total <= 1 || isSaving}
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-30"
+                className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-30"
               >
-                <Trash2 className="size-3.5" aria-hidden="true" />
+                <Trash2 className="size-4" aria-hidden="true" />
                 {localize('com_ui_delete_record')}
               </Button>
             </div>
@@ -431,7 +470,7 @@ export default function OilDataEditDialog({
             <EditableTable
               key={current}
               record={currentRecord}
-              schema={schema}
+              schema={currentSchema}
               onChange={updateCurrentRecord}
               localize={localize}
               alwaysEdit={isNewRecord}

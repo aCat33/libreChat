@@ -2,17 +2,15 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Code, Play, RefreshCw, X, Save } from 'lucide-react';
 import { useSetRecoilState, useResetRecoilState } from 'recoil';
-import { Button, Spinner, useMediaQuery, Radio, useToastContext } from '@librechat/client';
+import { Button, Spinner, useMediaQuery, Radio } from '@librechat/client';
 import type { SandpackPreviewRef } from '@codesandbox/sandpack-react';
 import { useShareContext, useMutationState } from '~/Providers';
-import { useExecuteMCPTool } from '~/data-provider/MCP';
 import useArtifacts from '~/hooks/Artifacts/useArtifacts';
 import DownloadArtifact from './DownloadArtifact';
 import ArtifactVersion from './ArtifactVersion';
 import ArtifactTabs from './ArtifactTabs';
 import OilDataEditDialog from './OilDataEditDialog';
 import { CopyCodeButton } from './Code';
-import { parseCompositeContent, isSingleSchema, SCHEMA_LABELS, flattenOilDataForSave } from './oilDataUtils';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
@@ -41,17 +39,6 @@ const OIL_SAVE_CONFIG: Record<string, { server: string; tool: string }> = {
     server: 'oilfield-operations',
     tool: 'save_wellbore_diagram',
   },
-};
-
-const SCHEMA_TO_MIME: Record<string, string> = {
-  'oil-data': 'application/vnd.oil-data',
-  'drilling-daily': 'application/vnd.oil-drilling-daily',
-  'pre-daily': 'application/vnd.oil-pre-daily',
-  'key-well': 'application/vnd.oil-key-well',
-  analysis: 'application/vnd.oil-analysis',
-  workover: 'application/vnd.oil-workover',
-  perforation: 'application/vnd.oil-perforation',
-  diagram: 'application/vnd.oil-diagram',
 };
 
 const MAX_BLUR_AMOUNT = 32;
@@ -117,8 +104,6 @@ export default function Artifacts() {
     }
   }, [height, isMobile]);
 
-  const { showToast } = useToastContext();
-
   const {
     activeTab,
     setActiveTab,
@@ -134,68 +119,20 @@ export default function Artifacts() {
       currentArtifact.type === 'application/vnd.oil-composite');
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isCompositeSaving, setIsCompositeSaving] = useState(false);
-
-  const { mutate: executeCompositeSave } = useExecuteMCPTool({
-    onSuccess: (data) => {
-      showToast({
-        message: data.result || localize('com_ui_save_to_database_success'),
-        status: 'success',
-      });
-    },
-    onError: (error) => {
-      showToast({
-        message: error.message || localize('com_ui_save_to_database_error'),
-        status: 'error',
-      });
-    },
-  });
 
   const handleSaveToDatabase = useCallback(() => {
     if (!currentArtifact?.content || !currentArtifact.type) {
       return;
     }
 
-    if (currentArtifact.type === 'application/vnd.oil-composite') {
-      const compositeData = parseCompositeContent(currentArtifact.content);
-      if (!compositeData) {
-        showToast({ message: localize('com_ui_save_to_database_error'), status: 'error' });
-        return;
-      }
-      setIsCompositeSaving(true);
-      const parts: string[] = [];
-      for (const [schema, group] of compositeData) {
-        const mime = SCHEMA_TO_MIME[schema];
-        const saveConfig = mime ? OIL_SAVE_CONFIG[mime] : undefined;
-        if (!saveConfig) {
-          continue;
-        }
-        for (const record of group.records) {
-          executeCompositeSave({
-            serverName: saveConfig.server,
-            toolName: saveConfig.tool,
-            toolArguments: flattenOilDataForSave(record),
-          });
-        }
-        if (isSingleSchema(schema)) {
-          parts.push(`${SCHEMA_LABELS[schema]} ×${group.records.length}`);
-        }
-      }
-      setIsCompositeSaving(false);
-      if (parts.length > 0) {
-        showToast({
-          message: `${localize('com_ui_save_all_started')}：${parts.join('、')}`,
-          status: 'success',
-        });
-      }
+    if (
+      currentArtifact.type === 'application/vnd.oil-composite' ||
+      currentArtifact.type in OIL_SAVE_CONFIG
+    ) {
+      setIsEditDialogOpen(true);
       return;
     }
-
-    if (!(currentArtifact.type in OIL_SAVE_CONFIG)) {
-      return;
-    }
-    setIsEditDialogOpen(true);
-  }, [currentArtifact, executeCompositeSave, showToast, localize]);
+  }, [currentArtifact]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -397,20 +334,11 @@ export default function Artifacts() {
                   size="sm"
                   variant="ghost"
                   onClick={handleSaveToDatabase}
-                  disabled={isCompositeSaving}
                   aria-label={localize('com_ui_save_to_database')}
                   className="flex items-center gap-1.5 text-xs"
                 >
-                  {isCompositeSaving ? (
-                    <Spinner size={14} />
-                  ) : (
-                    <Save size={14} aria-hidden="true" />
-                  )}
-                  {isCompositeSaving
-                    ? localize('com_ui_saving')
-                    : currentArtifact?.type === 'application/vnd.oil-composite'
-                      ? localize('com_ui_save_all')
-                      : localize('com_ui_save_to_database')}
+                  <Save size={14} aria-hidden="true" />
+                  {localize('com_ui_save_to_database')}
                 </Button>
               )}
               <Button
@@ -464,16 +392,13 @@ export default function Artifacts() {
             </div>
           )}
         </div>
-        {isOilData &&
-          currentArtifact != null &&
-          OIL_SAVE_CONFIG[currentArtifact.type ?? ''] != null && (
-            <OilDataEditDialog
-              open={isEditDialogOpen}
-              onClose={() => setIsEditDialogOpen(false)}
-              artifact={currentArtifact}
-              saveConfig={OIL_SAVE_CONFIG[currentArtifact.type ?? '']!}
-            />
-          )}
+        {isOilData && currentArtifact != null && (
+          <OilDataEditDialog
+            open={isEditDialogOpen}
+            onClose={() => setIsEditDialogOpen(false)}
+            artifact={currentArtifact}
+          />
+        )}
       </div>
     </Tabs.Root>
   );
