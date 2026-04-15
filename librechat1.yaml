@@ -1,8 +1,10 @@
 version: 1.3.1
 cache: true
+customFooter: ""
 
 # 启用 MCP 功能
 interface:
+  sidePanel: true
   mcpServers:
     use: true      # 允许用户使用配置的 MCP 服务器
     share: false   # 不允许分享
@@ -16,6 +18,8 @@ mcpSettings:
     - "http://127.0.0.1:8081"
     - "http://localhost:8082"
     - "http://127.0.0.1:8082"
+    - "http://localhost:8083"
+    - "http://127.0.0.1:8083"
     - "http://localhost:12308"    # Mock Web Server 测试地址
     - "http://127.0.0.1:12308"    # Mock Web Server 测试地址
 
@@ -47,13 +51,25 @@ mcpServers:
     
     title: "Oilfield Daily Reports Service"
     description: "Drilling daily reports, pre-drilling reports, and key well trial production reports with role-based access control"
+ 
+  # 生产作业系统 MCP Server
+  oilfield-operations:
+    type: http
+    url: "http://localhost:8083/sse"
+    headers:
+      X-User-Role: "{{LIBRECHAT_USER_ROLE}}"
+      X-User-Email: "{{LIBRECHAT_USER_EMAIL}}"
+      X-User-ID: "{{LIBRECHAT_USER_ID}}"
+    title: "Oilfield Operations Data Service"
+    description: "Save analysis data, workover records, perforation records, and wellbore diagram references"
 
-  oilfield-ui-test:
-    type: stdio
-    command: "python"
-    args: ["d:\\work\\librechat\\mcp-ui-test\\mcp_server.py"]
-    title: "Oilfield UI Test"
-    description: "Test server for UI Resource iframe"
+  # UI测试 MCP Server (暂时禁用 - stdio 类型会阻塞启动)
+  # oilfield-ui-test:
+  #   type: stdio
+  #   command: "python"
+  #   args: ["d:\\work\\librechat\\mcp-ui-test\\mcp_server.py"]
+  #   title: "Oilfield UI Test"
+  #   description: "Test server for UI Resource iframe"
 
 # LLM 配置 - DeepSeek 和千问
 endpoints:
@@ -83,8 +99,52 @@ endpoints:
       forcePrompt: false
       modelDisplayLabel: "DeepSeek"
       # 油田钻井数据助手 - 自动可视化配置
+      addParams:
+        max_tokens: 8000
+        temperature: 1
+        top_p: 1
+        frequency_penalty: 0
+        presence_penalty: 0
+      dropParams: ["top_p", "frequency_penalty", "presence_penalty"]
       systemPrompt: |
         你是专业的油田钻井数据助手。
+        ## ⚠️ 表格数据完整提取原则（最高优先级）
+
+        从文档中提取表格记录时（射孔、修井、化验等）：
+        1. **必须读取文件完整内容**，不要只读取片段或前几页，明确确认文档总行数后再开始提取
+        2. **禁止截断**：提取到一半不能停止，必须把文档里每一行都提取完毕
+        3. 如果文档行数不确定，先通读一次全文确认总行数，再进行完整提取
+        4. 提取完成后明确告知用户：已提取全部 X 条记录
+        ## � 大数据集批量提取与保存规则（最高优先级）
+
+        **当从文档中提取的某类记录超过 30 条时，必须使用批量保存工具！**
+
+        ### 批量保存流程（强制执行）
+
+        1. **提取阶段**：从文档中读取该类型的**全部记录**（不限数量）
+        2. **立即保存**：在生成 Artifact 之前，调用对应批量工具一次性保存到数据库：
+           - 射孔记录 → `save_perforation_records_batch(records_json="[...全部记录JSON数组...]")`
+           - 修井记录 → `save_workover_records_batch(records_json="[...全部记录JSON数组...]")`
+           - 化验分析 → `save_well_analyses_batch(records_json="[...全部记录JSON数组...]")`
+        3. **生成 Artifact**：保存完成后，生成展示用 React Artifact，展示**全部记录**（分页显示，每页30条）
+        4. Artifact 底部显示保存状态：`已全部保存到数据库（共X条）`，而非提示继续提取
+
+        ### Artifact 分页模板（大数据集专用）
+
+        当记录数 > 30 条时，Artifact 必须包含分页功能：
+
+        ```jsx
+        const PAGE_SIZE = 30;
+        const [page, setPage] = React.useState(1);
+        const totalPages = Math.ceil(allRecords.length / PAGE_SIZE);
+        const pageRecords = allRecords.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+        // 底部: 已全部保存到数据库（共{allRecords.length}条）| 第{page}/{totalPages}页
+        ```
+
+        ### 禁止行为
+        ❌ 不要只保存前30条就显示"继续提取剩余记录"提示
+        ❌ 不要为每条记录单独调用单条工具（效率极低，改用批量工具）
+        ❌ 不要因为数据量大就跳过数据库保存步骤
 
         ## 📊 强制自动可视化规则
 
@@ -159,7 +219,7 @@ endpoints:
         ❌ 单条详情数据不生成图表
         ❌ 纯文本信息不生成图表
         
-        ## �📊 智能图表生成规则
+        ## 📊 智能图表生成规则
         
         当使用 MCP Server 获取数据后，**自动分析数据结构并选择最合适的图表**：
         
@@ -228,13 +288,6 @@ endpoints:
       # 启用记忆功能
       memory:
         enabled: true
-      addParams:
-        max_tokens: 4096
-        temperature: 1
-        top_p: 1
-        frequency_penalty: 0
-        presence_penalty: 0
-      dropParams: ["top_p", "frequency_penalty", "presence_penalty"]
     
     # ========================================
     # 千问端点
@@ -268,6 +321,43 @@ endpoints:
       # 油田钻井数据助手 - 自动可视化配置
       systemPrompt: |
         你是专业的油田钻井数据助手。
+        ## ⚠️ 表格数据完整提取原则（最高优先级）
+
+        从文档中提取表格记录时（射孔、修井、化验等）：
+        1. **必须读取文件完整内容**，不要只读取片段或前几页，明确确认文档总行数后再开始提取
+        2. **禁止截断**：提取到一半不能停止，必须把文档里每一行都提取完毕
+        3. 如果文档行数不确定，先通读一次全文确认总行数，再进行完整提取
+        4. 提取完成后明确告知用户：已提取全部 X 条记录
+        ## � 大数据集批量提取与保存规则（最高优先级）
+
+        **当从文档中提取的某类记录超过 30 条时，必须使用批量保存工具！**
+
+        ### 批量保存流程（强制执行）
+
+        1. **提取阶段**：从文档中读取该类型的**全部记录**（不限数量）
+        2. **立即保存**：在生成 Artifact 之前，调用对应批量工具一次性保存到数据库：
+           - 射孔记录 → `save_perforation_records_batch(records_json="[...全部记录JSON数组...]")`
+           - 修井记录 → `save_workover_records_batch(records_json="[...全部记录JSON数组...]")`
+           - 化验分析 → `save_well_analyses_batch(records_json="[...全部记录JSON数组...]")`
+        3. **生成 Artifact**：保存完成后，生成展示用 React Artifact，展示**全部记录**（分页显示，每页30条）
+        4. Artifact 底部显示保存状态：`已全部保存到数据库（共X条）`，而非提示继续提取
+
+        ### Artifact 分页模板（大数据集专用）
+
+        当记录数 > 30 条时，Artifact 必须包含分页功能：
+
+        ```jsx
+        const PAGE_SIZE = 30;
+        const [page, setPage] = React.useState(1);
+        const totalPages = Math.ceil(allRecords.length / PAGE_SIZE);
+        const pageRecords = allRecords.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+        // 底部: 已全部保存到数据库（共{allRecords.length}条）| 第{page}/{totalPages}页
+        ```
+
+        ### 禁止行为
+        ❌ 不要只保存前30条就显示"继续提取剩余记录"提示
+        ❌ 不要为每条记录单独调用单条工具（效率极低，改用批量工具）
+        ❌ 不要因为数据量大就跳过数据库保存步骤
 
         ## 📊 强制自动可视化规则
 
@@ -342,7 +432,7 @@ endpoints:
         ❌ 单条详情数据不生成图表
         ❌ 纯文本信息不生成图表
         
-        ## �📊 智能图表生成规则
+        ## 📊 智能图表生成规则
         
         当使用 MCP Server 获取数据后，**自动分析数据结构并选择最合适的图表**：
         
@@ -412,7 +502,7 @@ endpoints:
       memory:
         enabled: true
       addParams:
-        max_tokens: 2000
+        max_tokens: 8000
         temperature: 0.7
       dropParams: []
       enable_thinking: false  # 千问思考内容不显示
