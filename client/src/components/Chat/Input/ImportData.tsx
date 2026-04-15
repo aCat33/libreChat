@@ -224,7 +224,7 @@ function ImportData() {
         className={cn(
           'group relative inline-flex items-center justify-center gap-1.5',
           'rounded-full border border-border-medium text-sm font-medium',
-          'size-9 p-2 transition-all md:w-full md:p-3',
+          'size-9 p-2 transition-all md:w-auto md:px-4 md:py-3',
           'bg-transparent shadow-sm hover:bg-surface-hover hover:shadow-md active:shadow-inner',
         )}
       >
